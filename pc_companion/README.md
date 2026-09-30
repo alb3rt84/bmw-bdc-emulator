@@ -29,26 +29,66 @@ Reply:
 ```bash
 cd pc_companion
 python -m venv .venv
+```
 
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
+### Windows — if PowerShell blocks `Activate.ps1`
+
+Error: *“running scripts is disabled on this system”* → use one of these:
+
+**Option A — CMD (simplest):**
+```bat
+cd pc_companion
+python -m venv .venv
+.venv\Scripts\activate.bat
+pip install -r requirements.txt
+python gui_app.py
+```
+
+**Option B — stay in PowerShell, bypass for this window only:**
+```powershell
+cd pc_companion
+python -m venv .venv
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python gui_app.py
+```
+
+**Option C — no activate at all (call venv tools by path):**
+```powershell
+cd pc_companion
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe gui_app.py
+```
+
+### macOS / Linux
+
+```bash
 source .venv/bin/activate
-
 pip install -r requirements.txt
 python gui_app.py
 ```
 
 ## Build a standalone Windows .EXE (PyInstaller)
 
-On a **Windows** PC (PyInstaller embeds the current OS):
+On a **Windows** PC (PyInstaller embeds the current OS). Prefer **CMD** or Option B/C above if PowerShell blocks scripts:
 
 ```bat
 cd pc_companion
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate.bat
 pip install -r requirements.txt
 pyinstaller --noconfirm --onefile --windowed --name BmwBdcCompanion gui_app.py
+```
+
+Without activating the venv:
+
+```bat
+cd pc_companion
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\pyinstaller.exe --noconfirm --onefile --windowed --name BmwBdcCompanion gui_app.py
 ```
 
 Output:
