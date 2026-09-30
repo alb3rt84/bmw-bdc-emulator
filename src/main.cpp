@@ -1,6 +1,10 @@
 /**
  * @file main.cpp
  * @brief BMW G-Chassis BDC / ZGM bench emulator — FreeRTOS entrypoint.
+ *
+ * Dual-path factory diagnostics:
+ *   CAN OBD  — BMW 0x6F1 ISO-TP → uds_bdc
+ *   DoIP     — Ethernet :13400  → uds_bdc (same handler)
  */
 
 #include <Arduino.h>
@@ -10,19 +14,21 @@
 #include "config.h"
 #include "doip_server.h"
 #include "lin_master.h"
+#include "obd_can.h"
 #include "pc_link.h"
+#include "uds_bdc.h"
 
 namespace {
 
 void canRxTask(void* /*arg*/) {
-  Serial.println(F("[CAN] RX monitor task started"));
+  Serial.println(F("[CAN] RX + OBD-ISO-TP task started"));
   CanFrame f;
   for (;;) {
     if (canBusReceive(CanChannel::Can1_Twai, f, 5)) {
-      (void)f;
+      obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/true);
     }
     if (canBusReceive(CanChannel::Can2_Mcp, f, 0)) {
-      (void)f;
+      obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/false);
     }
     vTaskDelay(pdMS_TO_TICKS(1));
   }
@@ -35,12 +41,14 @@ void setup() {
   delay(200);
   Serial.println();
   Serial.println(F("=== BMW G-Chassis BDC/ZGM Bench Emulator ==="));
-  Serial.println(F("CAN1=TWAI  CAN2=MCP2515  LIN=UART2  DoIP=:13400  PC=:13401"));
+  Serial.println(F("Diag: CAN OBD (0x6F1) + DoIP :13400  |  PC JSON :13401"));
 
   if (!canBusInit()) {
     Serial.println(F("[FATAL] No CAN controller available"));
   }
 
+  uds_bdc::init();
+  obd_can::init();
   lin::init();
   doip::init();
   pc_link::init();
@@ -65,7 +73,7 @@ void setup() {
       doip::serverTask, "doip", TASK_STACK_DOIP, nullptr,
       TASK_PRIO_DOIP, nullptr, TASK_CORE_NET);
 
-  Serial.println(F("[BOOT] Tasks created — emulator running"));
+  Serial.println(F("[BOOT] Tasks created — dual-path BDC diagnostics online"));
 }
 
 void loop() {

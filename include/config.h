@@ -113,3 +113,18 @@
 
 // Companion PC app UDP port (JSON protocol; DoIP stays on 13400)
 #define PC_COMPANION_UDP_PORT   13401
+
+// ---------------------------------------------------------------------------
+// Factory BDC diagnostics — CAN OBD (BMW addressed ISO-TP)
+// Request on 0x6F1 with data[0]=ecuAddr; response on 0x600|ecuAddr, data[0]=0xF1
+// Channel: 0 = TWAI(CAN1), 1 = MCP(CAN2), 2 = Both
+// ---------------------------------------------------------------------------
+#ifndef OBD_CAN_REQUEST_ID
+#define OBD_CAN_REQUEST_ID   0x6F1
+#endif
+#ifndef OBD_CAN_RESPONSE_ID
+#define OBD_CAN_RESPONSE_ID  0x610  // 0x600 + 0x10 (BDC)
+#endif
+#ifndef OBD_CAN_CHANNEL_SEL
+#define OBD_CAN_CHANNEL_SEL  0
+#endif

@@ -11,7 +11,8 @@ ESP32-based Body Domain Controller / Central Gateway emulator for **on-the-table
 | **Wake / KL15** | FreeRTOS cyclic TX: `0x510`, `0x12F`, `0x34A`, `0x2F8` |
 | **Live signals** | RPM `0x0A5`, Speed `0x1A1`, Coolant `0x1D0`, Fuel `0x349` (editable) |
 | **LIN Master** | UART2 @ 19200 + break/header scheduler (TJA1020) |
-| **DoIP** | LAN8720A Ethernet, TCP/UDP port **13400** |
+| **DoIP** | LAN8720A Ethernet, TCP/UDP port **13400** → shared UDS BDC |
+| **CAN OBD** | BMW `0x6F1` / `0x610` ISO-TP → **same** UDS BDC handler |
 | **PC Companion** | JSON over USB-Serial or UDP **:13401** — see `pc_companion/` |
 
 No `delay()` in bus tasks — only `vTaskDelay()` yields.
@@ -39,6 +40,25 @@ platformio.ini
 ```bash
 pio run -t upload
 pio device monitor -b 115200
+```
+
+## Dual-path BDC diagnostics (factory-style)
+
+One UDS server (`uds_bdc`) answers on both media:
+
+| Path | Addressing | Services (initial) |
+|------|------------|--------------------|
+| **CAN OBD** | BMW ISO-TP: req `0x6F1` + `ecu=0x10`, resp `0x610` | `0x10` session, `0x3E` tester present, `0x22` DID (`F190` VIN, `F186` session, `F18C` SN, `0100` live signals), `0x14`/`0x19` DTC stubs |
+| **DoIP** | LA `0x0010`, TCP/UDP `:13400` | Same UDS handler |
+
+Example CAN Single-Frame TesterPresent:
+```
+ID 0x6F1  data: 10 02 3E 00 00 00 00 00
+              ^^ecu ^^ISO-TP SF len=2  ^^UDS
+```
+Response:
+```
+ID 0x610  data: F1 02 7E 00 ...
 ```
 
 ## PC Companion GUI
