@@ -11,7 +11,8 @@ ESP32-based Body Domain Controller / Central Gateway emulator for **on-the-table
 | **Wake / KL15** | FreeRTOS cyclic TX: `0x510`, `0x12F`, `0x34A`, `0x2F8` |
 | **Live signals** | RPM `0x0A5`, Speed `0x1A1`, Coolant `0x1D0`, Fuel `0x349` (editable) |
 | **LIN Master** | UART2 @ 19200 + break/header scheduler (TJA1020) |
-| **DoIP** | LAN8720A Ethernet, TCP/UDP port **13400** |
+| **DoIP** | LAN8720A Ethernet, TCP/UDP port **13400** → shared UDS BDC |
+| **CAN OBD** | BMW `0x6F1` / `0x610` ISO-TP → **same** UDS BDC handler |
 | **PC Companion** | JSON over USB-Serial or UDP **:13401** — see `pc_companion/` |
 
 No `delay()` in bus tasks — only `vTaskDelay()` yields.

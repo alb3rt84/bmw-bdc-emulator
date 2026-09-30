@@ -1,10 +1,11 @@
 /**
  * @file doip_server.cpp
- * @brief Minimal DoIP (ISO 13400) UDP discovery + TCP session listener.
+ * @brief DoIP UDP discovery + TCP sessions → shared uds_bdc handler.
  */
 
 #include "doip_server.h"
 #include "config.h"
+#include "uds_bdc.h"
 
 #include <ETH.h>
 #include <WiFi.h>
@@ -29,8 +30,9 @@ constexpr uint16_t kPtRoutingActivationReq = 0x0005;
 constexpr uint16_t kPtRoutingActivationRes = 0x0006;
 constexpr uint16_t kPtDiagnosticMessage    = 0x8001;
 constexpr uint16_t kPtDiagnosticMessageAck = 0x8002;
+constexpr uint16_t kPtDiagnosticMessageNack = 0x8003;
 
-constexpr uint16_t kLaGateway = 0x0010;
+constexpr uint16_t kLaGateway = uds_bdc::kLogicalAddress;
 constexpr uint16_t kLaTester  = 0x0E00;
 
 bool g_ethReady = false;
@@ -101,8 +103,21 @@ void handleUdpDiscovery() {
   Serial.println(F("[DoIP] Vehicle Identification Response sent"));
 }
 
+void sendDiagnosticResponse(int client, uint16_t sa, uint16_t ta,
+                            const uint8_t* uds, size_t udsLen) {
+  // DoIP diagnostic message: SA(2)+TA(2)+UDS
+  uint8_t packet[8 + 4 + 256];
+  if (udsLen > 256) udsLen = 256;
+  const uint32_t plen = (uint32_t)(4 + udsLen);
+  buildHeader(packet, kPtDiagnosticMessage, plen);
+  writeU16Be(packet + 8, sa);   // our LA (BDC) as source
+  writeU16Be(packet + 10, ta);  // tester as target
+  memcpy(packet + 12, uds, udsLen);
+  send(client, packet, 8 + plen, 0);
+}
+
 void handleTcpClient(int client) {
-  uint8_t buf[1024];
+  uint8_t buf[1100];
   for (;;) {
     const int n = recv(client, buf, sizeof(buf), MSG_DONTWAIT);
     if (n == 0) break;
@@ -135,15 +150,35 @@ void handleTcpClient(int client) {
     }
 
     if (ptype == kPtDiagnosticMessage && plen >= 4 && (uint32_t)n >= 8 + plen) {
-      const uint8_t* uds = buf + 8 + 4;
+      const uint16_t sa = readU16Be(buf + 8);   // tester
+      const uint16_t ta = readU16Be(buf + 10);  // target ECU
+
+      // Only answer when targeted at our BDC LA (or broadcast 0xE400-ish skip)
+      if (ta != kLaGateway) {
+        uint8_t nack[8 + 5] = {};
+        buildHeader(nack, kPtDiagnosticMessageNack, 5);
+        memcpy(nack + 8, buf + 8, 4);
+        nack[12] = 0x03;  // unknown target address
+        send(client, nack, sizeof(nack), 0);
+        continue;
+      }
+
+      const uint8_t* uds = buf + 12;
       const size_t udsLen = plen - 4;
 
+      // ACK
       uint8_t ack[8 + 5] = {};
       buildHeader(ack, kPtDiagnosticMessageAck, 5);
       memcpy(ack + 8, buf + 8, 4);
       ack[12] = 0x00;
       send(client, ack, sizeof(ack), 0);
-      onDiagnosticPayload(uds, udsLen);
+
+      uint8_t resp[256];
+      const size_t respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
+      if (respLen > 0) {
+        // Swap SA/TA for reply: BDC → tester
+        sendDiagnosticResponse(client, kLaGateway, sa, resp, respLen);
+      }
     }
   }
   close(client);
@@ -199,15 +234,6 @@ void onEthEvent(WiFiEvent_t event) {
 
 }  // namespace
 
-void onDiagnosticPayload(const uint8_t* data, size_t len) {
-  Serial.printf("[DoIP] Diagnostic payload %u bytes:", (unsigned)len);
-  for (size_t i = 0; i < len && i < 16; i++) {
-    Serial.printf(" %02X", data[i]);
-  }
-  if (len > 16) Serial.print(F(" ..."));
-  Serial.println();
-}
-
 bool init() {
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
   Network.onEvent(onEthEvent);
@@ -215,7 +241,6 @@ bool init() {
                             ETH_PHY_POWER, ETH_CLK_MODE);
 #else
   WiFi.onEvent(onEthEvent);
-  // Arduino-ESP32 2.x signature: begin(addr, power, mdc, mdio, type, clk_mode)
   const bool ok = ETH.begin(ETH_PHY_ADDR, ETH_PHY_POWER, ETH_PHY_MDC, ETH_PHY_MDIO,
                             ETH_PHY_TYPE, ETH_CLK_MODE);
 #endif
@@ -255,8 +280,9 @@ void serverTask(void* /*arg*/) {
   listen(g_tcpSock, 2);
   fcntl(g_tcpSock, F_SETFL, O_NONBLOCK);
 
-  Serial.printf("[DoIP] Listening UDP/TCP :%u  (IP %s)\n",
-                DOIP_TCP_DATA_PORT, ETH.localIP().toString().c_str());
+  Serial.printf("[DoIP] BDC LA=0x%04X listening UDP/TCP :%u (IP %s)\n",
+                kLaGateway, DOIP_TCP_DATA_PORT,
+                ETH.localIP().toString().c_str());
 
   for (;;) {
     handleUdpDiscovery();
