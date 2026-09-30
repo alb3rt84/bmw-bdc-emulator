@@ -56,8 +56,8 @@ bool initTwai() {
 
 bool initMcp() {
   g_hspi.begin(PIN_MCP_SCK, PIN_MCP_MISO, PIN_MCP_MOSI, PIN_MCP_CS);
-  // autowp-mcp2515: MCP2515(CS, SPIClass*, spiHz)
-  g_mcp = new MCP2515(PIN_MCP_CS, &g_hspi, 10000000UL);
+  // autowp-mcp2515: MCP2515(CS, spiHz, SPIClass*)
+  g_mcp = new MCP2515(PIN_MCP_CS, 10000000UL, &g_hspi);
 
   if (g_mcp->reset() != MCP2515::ERROR_OK) {
     Serial.println(F("[CAN2] MCP2515 reset failed — check wiring / power"));
