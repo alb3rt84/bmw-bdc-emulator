@@ -42,6 +42,25 @@ pio run -t upload
 pio device monitor -b 115200
 ```
 
+## Dual-path BDC diagnostics (factory-style)
+
+One UDS server (`uds_bdc`) answers on both media:
+
+| Path | Addressing | Services (initial) |
+|------|------------|--------------------|
+| **CAN OBD** | BMW ISO-TP: req `0x6F1` + `ecu=0x10`, resp `0x610` | `0x10` session, `0x3E` tester present, `0x22` DID (`F190` VIN, `F186` session, `F18C` SN, `0100` live signals), `0x14`/`0x19` DTC stubs |
+| **DoIP** | LA `0x0010`, TCP/UDP `:13400` | Same UDS handler |
+
+Example CAN Single-Frame TesterPresent:
+```
+ID 0x6F1  data: 10 02 3E 00 00 00 00 00
+              ^^ecu ^^ISO-TP SF len=2  ^^UDS
+```
+Response:
+```
+ID 0x610  data: F1 02 7E 00 ...
+```
+
 ## PC Companion GUI
 
 Python/Tkinter app (`pc_companion/gui_app.py`) controls ignition + RPM/speed/fuel/coolant over Serial or UDP.
