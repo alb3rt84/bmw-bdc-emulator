@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 namespace obd_can {
 
 bool init();
