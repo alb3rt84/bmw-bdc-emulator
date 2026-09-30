@@ -9,8 +9,10 @@ ESP32-based Body Domain Controller / Central Gateway emulator for **on-the-table
 | **CAN1** | ESP32 native TWAI @ 500 kbit/s |
 | **CAN2** | MCP2515 (SPI / HSPI) @ 500 kbit/s |
 | **Wake / KL15** | FreeRTOS cyclic TX: `0x510`, `0x12F`, `0x34A`, `0x2F8` |
+| **Live signals** | RPM `0x0A5`, Speed `0x1A1`, Coolant `0x1D0`, Fuel `0x349` (editable) |
 | **LIN Master** | UART2 @ 19200 + break/header scheduler (TJA1020) |
 | **DoIP** | LAN8720A Ethernet, TCP/UDP port **13400** |
+| **PC Companion** | JSON over USB-Serial or UDP **:13401** — see `pc_companion/` |
 
 No `delay()` in bus tasks — only `vTaskDelay()` yields.
 
@@ -38,6 +40,18 @@ platformio.ini
 pio run -t upload
 pio device monitor -b 115200
 ```
+
+## PC Companion GUI
+
+Python/Tkinter app (`pc_companion/gui_app.py`) controls ignition + RPM/speed/fuel/coolant over Serial or UDP.
+
+```bat
+cd pc_companion
+pip install -r requirements.txt
+pyinstaller --noconfirm --onefile --windowed --name BmwBdcCompanion gui_app.py
+```
+
+Details: [`pc_companion/README.md`](pc_companion/README.md).
 
 ## Cyclic BMW G-Chassis frames (hardcoded)
 

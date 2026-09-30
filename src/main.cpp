@@ -1,14 +1,6 @@
 /**
  * @file main.cpp
  * @brief BMW G-Chassis BDC / ZGM bench emulator — FreeRTOS entrypoint.
- *
- * Architecture
- * ------------
- *  Core 1 (APP):  high-priority cyclic CAN TX (wake + KL15 + vehicle state)
- *                 + CAN RX monitor + LIN master scheduler
- *  Core 0 (PRO):  Ethernet / DoIP TCP+UDP :13400
- *
- * No delay() is used in bus tasks — only vTaskDelay() for cooperative yields.
  */
 
 #include <Arduino.h>
@@ -18,6 +10,7 @@
 #include "config.h"
 #include "doip_server.h"
 #include "lin_master.h"
+#include "pc_link.h"
 
 namespace {
 
@@ -25,14 +18,10 @@ void canRxTask(void* /*arg*/) {
   Serial.println(F("[CAN] RX monitor task started"));
   CanFrame f;
   for (;;) {
-    // Poll both buses with short timeouts (non-blocking overall)
     if (canBusReceive(CanChannel::Can1_Twai, f, 5)) {
-      // Uncomment for verbose sniffing:
-      // canBusLogFrame("[CAN1 RX]", CanChannel::Can1_Twai, f);
       (void)f;
     }
     if (canBusReceive(CanChannel::Can2_Mcp, f, 0)) {
-      // canBusLogFrame("[CAN2 RX]", CanChannel::Can2_Mcp, f);
       (void)f;
     }
     vTaskDelay(pdMS_TO_TICKS(1));
@@ -43,10 +32,10 @@ void canRxTask(void* /*arg*/) {
 
 void setup() {
   Serial.begin(115200);
-  delay(200);  // only during boot for USB-CDC settle — not used in tasks
+  delay(200);
   Serial.println();
   Serial.println(F("=== BMW G-Chassis BDC/ZGM Bench Emulator ==="));
-  Serial.println(F("CAN1=TWAI  CAN2=MCP2515  LIN=UART2  DoIP=:13400"));
+  Serial.println(F("CAN1=TWAI  CAN2=MCP2515  LIN=UART2  DoIP=:13400  PC=:13401"));
 
   if (!canBusInit()) {
     Serial.println(F("[FATAL] No CAN controller available"));
@@ -54,9 +43,8 @@ void setup() {
 
   lin::init();
   doip::init();
+  pc_link::init();
 
-  // --- FreeRTOS tasks -------------------------------------------------------
-  // Time-critical ignition / NM / Fahrzustand on Core 1
   xTaskCreatePinnedToCore(
       bmw::cyclicTxTask, "bmw_cyclic", TASK_STACK_CAN_CYCLIC, nullptr,
       TASK_PRIO_CAN_CYCLIC, nullptr, TASK_CORE_CAN);
@@ -69,7 +57,10 @@ void setup() {
       lin::masterTask, "lin_master", TASK_STACK_LIN, nullptr,
       TASK_PRIO_LIN, nullptr, TASK_CORE_CAN);
 
-  // DoIP / Ethernet on Core 0 so socket traffic cannot starve CAN
+  xTaskCreatePinnedToCore(
+      pc_link::task, "pc_link", TASK_STACK_PC_LINK, nullptr,
+      TASK_PRIO_PC_LINK, nullptr, TASK_CORE_NET);
+
   xTaskCreatePinnedToCore(
       doip::serverTask, "doip", TASK_STACK_DOIP, nullptr,
       TASK_PRIO_DOIP, nullptr, TASK_CORE_NET);
@@ -78,7 +69,5 @@ void setup() {
 }
 
 void loop() {
-  // All work is in FreeRTOS tasks. Idle here with a long yield so loopTask
-  // does not burn CPU.
   vTaskDelay(pdMS_TO_TICKS(1000));
 }
