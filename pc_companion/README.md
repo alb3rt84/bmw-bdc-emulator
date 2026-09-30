@@ -1,30 +1,33 @@
 # BMW BDC/ZGM — PC Companion Application
 
-Tkinter GUI that talks to the ESP32 bench emulator over **USB-Serial** or **UDP :13401**.
+Tkinter GUI with two diagnostic paths matching the ESP32 firmware:
+
+| Tab | Path | Port | Purpose |
+|-----|------|------|---------|
+| **Live Control** | JSON Serial / UDP | COM or **:13401** | KL15, RPM, speed, fuel, coolant → cyclic CAN |
+| **DoIP UDS** | Factory DoIP | **:13400** | Same UDS BDC as CAN OBD (session, DID, DTC) |
 
 ## Features
 
-- Select COM port or ESP32 Ethernet IP
-- **Terminal 15** ignition toggle → updates CAN `0x12F` payload live
-- Sliders stream **RPM / speed / fuel / coolant** → ESP32 injects into cyclic CAN TX
+- Live Control: ignition toggle, signal sliders, idle/drive presets
+- DoIP: UDP discover (VIN/LA), TCP routing activation, one-click UDS buttons
+- Raw UDS hex entry + decoded responses (VIN, live DID `0100`, …)
+- Shared log tab
 
-## Protocol (JSON lines)
-
-One JSON object per line (`\n` terminated), either on Serial 115200 or UDP port **13401**.
+## Protocol — Live Control (JSON lines)
 
 | Command | Example |
 |---------|---------|
-| Ping / status | `{"cmd":"ping"}` |
+| Ping | `{"cmd":"ping"}` |
 | Ignition | `{"cmd":"ign","on":1}` |
-| Live signals | `{"cmd":"sig","rpm":1500,"spd":60,"fuel":75,"clt":90}` |
+| Signals | `{"cmd":"sig","rpm":1500,"spd":60,"fuel":75,"clt":90}` |
 
-Reply:
+## Protocol — DoIP
 
-```json
-{"ok":1,"ign":1,"rpm":1500,"spd":60.0,"fuel":75.0,"clt":90}
-```
+- UDP/TCP `13400`, BDC logical address `0x0010`
+- Services: `10` session, `3E` tester present, `22` DID, `14`/`19` DTC
 
-## Run from source (Windows / macOS / Linux)
+## Run from source
 
 ```bash
 cd pc_companion
@@ -33,9 +36,7 @@ python -m venv .venv
 
 ### Windows — if PowerShell blocks `Activate.ps1`
 
-Error: *“running scripts is disabled on this system”* → use one of these:
-
-**Option A — CMD (simplest):**
+**Option A — CMD:**
 ```bat
 cd pc_companion
 python -m venv .venv
@@ -44,91 +45,25 @@ pip install -r requirements.txt
 python gui_app.py
 ```
 
-**Option B — stay in PowerShell, bypass for this window only:**
+**Option B — no activate:**
 ```powershell
-cd pc_companion
-python -m venv .venv
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python gui_app.py
-```
-
-**Option C — no activate at all (call venv tools by path):**
-```powershell
-cd pc_companion
-python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe gui_app.py
 ```
 
-### macOS / Linux
+## Build Windows .EXE
 
-```bash
-source .venv/bin/activate
-pip install -r requirements.txt
-python gui_app.py
-```
-
-## Build a standalone Windows .EXE (PyInstaller)
-
-### Easiest — double-click / CMD
-
-1. Open **Command Prompt** (`cmd`), not PowerShell.
-2. Go to the companion folder, then run the build script:
+Easiest: double-click / run from **CMD**:
 
 ```bat
-cd C:\Users\Albert\Desktop\bmw-bdc-emulator-main\bmw-bdc-emulator-main\pc_companion
+cd pc_companion
 build_exe.bat
 ```
 
-Or double-click `pc_companion\build_exe.bat` in Explorer.
-
-Output: `pc_companion\dist\BmwBdcCompanion.exe`
-
-### Manual (CMD)
-
-```bat
-cd pc_companion
-python -m venv .venv
-.venv\Scripts\activate.bat
-pip install -r requirements.txt
-pyinstaller --noconfirm --onefile --windowed --name BmwBdcCompanion gui_app.py
-```
-
-Without activating the venv:
-
-```bat
-cd pc_companion
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\pyinstaller.exe --noconfirm --onefile --windowed --name BmwBdcCompanion gui_app.py
-```
-
-Output:
-
-```
-pc_companion\dist\BmwBdcCompanion.exe
-```
-
-Optional console for debugging (shows Serial traffic):
-
-```bat
-pyinstaller --noconfirm --onefile --console --name BmwBdcCompanion gui_app.py
-```
-
-### One-liner (PowerShell)
-
-```powershell
-pip install pyserial pyinstaller
-pyinstaller --noconfirm --onefile --windowed --name BmwBdcCompanion gui_app.py
-```
+→ `pc_companion\dist\BmwBdcCompanion.exe`
 
 ## Bench checklist
 
-1. Flash ESP32 firmware (`pio run -t upload`)
-2. Connect USB-UART **or** Ethernet (`192.168.0.10` by default)
-3. Launch `BmwBdcCompanion.exe` → Connect
-4. Toggle ignition / move sliders → watch CAN with a sniffer
-
-Signal CAN IDs / encodings live in `src/bmw_frames.cpp` (search `encodeRpm`).
+1. Flash ESP32 (dual-path UDS firmware)
+2. Live Control: USB or UDP `:13401` → move sliders
+3. DoIP: Ethernet to `192.168.0.10` → Discover → Connect → Read VIN / Live
