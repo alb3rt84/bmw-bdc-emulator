@@ -100,11 +100,16 @@
 #define TASK_STACK_CAN_RX       4096
 #define TASK_STACK_LIN          3072
 #define TASK_STACK_DOIP         8192
+#define TASK_STACK_PC_LINK      4096
 
 #define TASK_PRIO_CAN_CYCLIC    5   // highest — time-critical wake / ignition
 #define TASK_PRIO_CAN_RX        4
 #define TASK_PRIO_LIN           3
+#define TASK_PRIO_PC_LINK       3
 #define TASK_PRIO_DOIP          2
 
 #define TASK_CORE_CAN           1   // pin bus I/O to APP CPU
 #define TASK_CORE_NET           0   // pin Ethernet / DoIP to PRO CPU
+
+// Companion PC app UDP port (JSON protocol; DoIP stays on 13400)
+#define PC_COMPANION_UDP_PORT   13401
