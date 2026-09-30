@@ -302,13 +302,16 @@ class CompanionApp(tk.Tk):
         nb.pack(fill="both", expand=True, padx=10, pady=4)
 
         self.tab_live = ttk.Frame(nb)
+        self.tab_cfg = ttk.Frame(nb)
         self.tab_doip = ttk.Frame(nb)
         self.tab_log = ttk.Frame(nb)
         nb.add(self.tab_live, text="Live Control")
+        nb.add(self.tab_cfg, text="BDC Identity")
         nb.add(self.tab_doip, text="DoIP UDS (BDC)")
         nb.add(self.tab_log, text="Log")
 
         self._build_live_tab()
+        self._build_cfg_tab()
         self._build_doip_tab()
         self._build_log_tab()
 
@@ -399,6 +402,100 @@ class CompanionApp(tk.Tk):
         self._on_ignition()
         self._pending_sig = True
 
+    # ----------------------------- BDC Identity ----------------------------
+    def _build_cfg_tab(self) -> None:
+        pad = {"padx": 10, "pady": 6}
+        info = ttk.LabelFrame(self.tab_cfg, text="VIN / FA / I-Stufe (zapis w NVS na ESP)")
+        info.pack(fill="both", expand=True, **pad)
+
+        form = ttk.Frame(info)
+        form.pack(fill="x", padx=8, pady=8)
+
+        self.cfg_vin = tk.StringVar(value="WBADEMOGCHASSIS01")
+        self.cfg_fa = tk.StringVar(value="")
+        self.cfg_istufe = tk.StringVar(value="")
+        self.cfg_serial = tk.StringVar(value="")
+        self.cfg_model = tk.StringVar(value="G30")
+        self.cfg_la = tk.StringVar(value="16")
+
+        rows = [
+            ("VIN (17 znaków)", self.cfg_vin),
+            ("FA (ASCII / paste)", self.cfg_fa),
+            ("I-Stufe", self.cfg_istufe),
+            ("Serial (F18C)", self.cfg_serial),
+            ("Model / Baureihe", self.cfg_model),
+            ("DoIP LA (dec, 16=0x0010)", self.cfg_la),
+        ]
+        for i, (label, var) in enumerate(rows):
+            ttk.Label(form, text=label).grid(row=i, column=0, sticky="w", pady=3)
+            ttk.Entry(form, textvariable=var, width=56).grid(
+                row=i, column=1, sticky="we", padx=6, pady=3
+            )
+        form.columnconfigure(1, weight=1)
+
+        btns = ttk.Frame(info)
+        btns.pack(fill="x", padx=8, pady=8)
+        ttk.Button(btns, text="Load from ESP", command=self._cfg_load).pack(side="left", padx=4)
+        ttk.Button(btns, text="Save to ESP (NVS)", command=self._cfg_save).pack(side="left", padx=4)
+        ttk.Button(btns, text="Reset defaults", command=self._cfg_reset).pack(side="left", padx=4)
+
+        ttk.Label(
+            info,
+            text="UDS DIDs: F190=VIN, F18C=Serial, 0101=FA, 0102=I-Stufe, 0103=Model\n"
+                 "DoIP Vehicle Announcement używa VIN + LA z tej konfiguracji.",
+            justify="left",
+        ).pack(anchor="w", padx=8, pady=6)
+
+    def _cfg_load(self) -> None:
+        if self._ctrl is None:
+            messagebox.showinfo(APP_TITLE, "Najpierw Connect w zakładce Live Control (COM/UDP).")
+            return
+        self._ctrl_send({"cmd": "cfg"})
+
+    def _cfg_save(self) -> None:
+        if self._ctrl is None:
+            messagebox.showinfo(APP_TITLE, "Najpierw Connect w zakładce Live Control.")
+            return
+        vin = self.cfg_vin.get().strip().upper()
+        if len(vin) != 17:
+            messagebox.showerror(APP_TITLE, "VIN must be exactly 17 characters")
+            return
+        try:
+            la = int(self.cfg_la.get().strip(), 0)
+        except ValueError:
+            messagebox.showerror(APP_TITLE, "Invalid LA")
+            return
+        self._ctrl_send({
+            "cmd": "cfg",
+            "vin": vin,
+            "fa": self.cfg_fa.get().strip(),
+            "istufe": self.cfg_istufe.get().strip(),
+            "serial": self.cfg_serial.get().strip(),
+            "model": self.cfg_model.get().strip(),
+            "la": la,
+            "save": 1,
+        })
+
+    def _cfg_reset(self) -> None:
+        if self._ctrl is None:
+            messagebox.showinfo(APP_TITLE, "Najpierw Connect w zakładce Live Control.")
+            return
+        self._ctrl_send({"cmd": "cfg", "reset": 1, "save": 1})
+
+    def _apply_cfg_reply(self, obj: dict) -> None:
+        if "vin" in obj:
+            self.cfg_vin.set(str(obj.get("vin", "")))
+        if "fa" in obj:
+            self.cfg_fa.set(str(obj.get("fa", "")))
+        if "istufe" in obj:
+            self.cfg_istufe.set(str(obj.get("istufe", "")))
+        if "serial" in obj:
+            self.cfg_serial.set(str(obj.get("serial", "")))
+        if "model" in obj:
+            self.cfg_model.set(str(obj.get("model", "")))
+        if "la" in obj:
+            self.cfg_la.set(str(obj.get("la", "")))
+
     # ----------------------------- DoIP UDS --------------------------------
     def _build_doip_tab(self) -> None:
         pad = {"padx": 10, "pady": 6}
@@ -436,6 +533,8 @@ class CompanionApp(tk.Tk):
         ttk.Button(row2, text="Read Session (F186)", command=lambda: self._uds_send(bytes([0x22, 0xF1, 0x86]))).pack(side="left", padx=3)
         ttk.Button(row2, text="Read Live (0100)", command=lambda: self._uds_send(bytes([0x22, 0x01, 0x00]))).pack(side="left", padx=3)
         ttk.Button(row2, text="Read SN (F18C)", command=lambda: self._uds_send(bytes([0x22, 0xF1, 0x8C]))).pack(side="left", padx=3)
+        ttk.Button(row2, text="Read FA (0101)", command=lambda: self._uds_send(bytes([0x22, 0x01, 0x01]))).pack(side="left", padx=3)
+        ttk.Button(row2, text="Read I-Stufe (0102)", command=lambda: self._uds_send(bytes([0x22, 0x01, 0x02]))).pack(side="left", padx=3)
 
         row3 = ttk.Frame(svc)
         row3.pack(fill="x", padx=8, pady=6)
@@ -546,6 +645,13 @@ class CompanionApp(tk.Tk):
             while True:
                 line = self._rx_q.get_nowait()
                 self._append_log("CTRL << " + line)
+                if line.startswith("{") and "\"cfg\"" in line:
+                    try:
+                        obj = json.loads(line)
+                        if obj.get("ok") and (obj.get("cfg") == 1 or "vin" in obj):
+                            self._apply_cfg_reply(obj)
+                    except json.JSONDecodeError:
+                        pass
         except queue.Empty:
             pass
         self.after(50, self._poll_rx)
@@ -672,6 +778,12 @@ class CompanionApp(tk.Tk):
                 return f"Active session = 0x{data[0]:02X}"
             if did == 0xF18C:
                 return f"Serial = {data.decode('ascii', errors='replace')}"
+            if did == 0x0101:
+                return f"FA = {data.decode('ascii', errors='replace')}"
+            if did == 0x0102:
+                return f"I-Stufe = {data.decode('ascii', errors='replace')}"
+            if did == 0x0103:
+                return f"Model = {data.decode('ascii', errors='replace')}"
             if did == 0x0100 and len(data) >= 7:
                 ign = data[0]
                 rpm = (data[1] << 8) | data[2]

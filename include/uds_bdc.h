@@ -10,7 +10,7 @@
 
 namespace uds_bdc {
 
-/** Logical address used in DoIP (BDC / ZGM). */
+/** Default logical address used in DoIP (overridden by bdc_config NVS). */
 constexpr uint16_t kLogicalAddress = 0x0010;
 
 /** BMW ECU address byte used on CAN 0x6F1 addressed framing. */

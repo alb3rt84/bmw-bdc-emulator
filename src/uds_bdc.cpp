@@ -1,13 +1,10 @@
 /**
  * @file uds_bdc.cpp
- * @brief Shared BDC UDS server (session, TesterPresent, DID, DTC stub).
- *
- * Same handler is used for:
- *   - CAN OBD (ISO-TP / BMW 0x6F1)
- *   - DoIP Ethernet (ISO 13400 diagnostic messages)
+ * @brief Shared BDC UDS server — VIN/FA/I-Stufe from bdc_config.
  */
 
 #include "uds_bdc.h"
+#include "bdc_config.h"
 #include "bmw_frames.h"
 
 #include <Arduino.h>
@@ -17,11 +14,7 @@ namespace uds_bdc {
 
 namespace {
 
-uint8_t g_session = 0x01;  // defaultSession
-
-// Placeholder VIN — EDIT to match your bench vehicle / E-Sys project
-const char kVin[17] = {'W', 'B', 'A', 'D', 'E', 'M', 'O', 'G', 'C',
-                       'H', 'A', 'S', 'S', 'I', 'S', '0', '1'};
+uint8_t g_session = 0x01;
 
 size_t neg(uint8_t* out, size_t outMax, uint8_t sid, uint8_t nrc) {
   if (outMax < 3) return 0;
@@ -37,21 +30,30 @@ size_t posSid(uint8_t* out, size_t outMax, uint8_t sid) {
   return 1;
 }
 
+size_t replyAsciiDid(uint8_t* out, size_t outMax, uint16_t did, const char* text) {
+  const size_t n = strlen(text);
+  if (outMax < 3 + n) return 0;
+  out[0] = 0x62;
+  out[1] = (uint8_t)(did >> 8);
+  out[2] = (uint8_t)(did & 0xFF);
+  memcpy(out + 3, text, n);
+  return 3 + n;
+}
+
 size_t handleSession(const uint8_t* req, size_t len, uint8_t* out, size_t outMax) {
-  if (len < 2) return neg(out, outMax, 0x10, 0x13);  // incorrectMessageLength
+  if (len < 2) return neg(out, outMax, 0x10, 0x13);
   const uint8_t type = req[1];
   if (type != 0x01 && type != 0x02 && type != 0x03) {
-    return neg(out, outMax, 0x10, 0x12);  // subFunctionNotSupported
+    return neg(out, outMax, 0x10, 0x12);
   }
   g_session = type;
   if (outMax < 6) return neg(out, outMax, 0x10, 0x10);
   out[0] = 0x50;
   out[1] = type;
-  // P2 / P2* placeholders (ms encoding per ISO 14229)
   out[2] = 0x00;
-  out[3] = 0x32;  // P2 = 50 ms
+  out[3] = 0x32;
   out[4] = 0x01;
-  out[5] = 0xF4;  // P2* = 5000 ms
+  out[5] = 0xF4;
   Serial.printf("[UDS] Session -> 0x%02X\n", type);
   return 6;
 }
@@ -61,7 +63,7 @@ size_t handleTesterPresent(const uint8_t* req, size_t len, uint8_t* out,
   if (len < 2) return neg(out, outMax, 0x3E, 0x13);
   const uint8_t sf = req[1];
   if ((sf & 0x7F) != 0x00) return neg(out, outMax, 0x3E, 0x12);
-  if (sf & 0x80) return 0;  // suppressPosRspMsgIndicationBit
+  if (sf & 0x80) return 0;
   if (outMax < 2) return 0;
   out[0] = 0x7E;
   out[1] = 0x00;
@@ -71,18 +73,12 @@ size_t handleTesterPresent(const uint8_t* req, size_t len, uint8_t* out,
 size_t handleReadDid(const uint8_t* req, size_t len, uint8_t* out, size_t outMax) {
   if (len < 3) return neg(out, outMax, 0x22, 0x13);
   const uint16_t did = (uint16_t)((req[1] << 8) | req[2]);
+  const bdc_config::Identity& id = bdc_config::get();
 
-  // F190 — VIN
   if (did == 0xF190) {
-    if (outMax < 3 + 17) return neg(out, outMax, 0x22, 0x10);
-    out[0] = 0x62;
-    out[1] = 0xF1;
-    out[2] = 0x90;
-    memcpy(out + 3, kVin, 17);
-    return 3 + 17;
+    const size_t n = replyAsciiDid(out, outMax, did, id.vin);
+    return n ? n : neg(out, outMax, 0x22, 0x10);
   }
-
-  // F186 — ActiveDiagnosticSession
   if (did == 0xF186) {
     if (outMax < 4) return neg(out, outMax, 0x22, 0x10);
     out[0] = 0x62;
@@ -91,9 +87,26 @@ size_t handleReadDid(const uint8_t* req, size_t len, uint8_t* out, size_t outMax
     out[3] = g_session;
     return 4;
   }
+  if (did == 0xF18C) {
+    const size_t n = replyAsciiDid(out, outMax, did, id.serial);
+    return n ? n : neg(out, outMax, 0x22, 0x10);
+  }
 
-  // Custom bench DID 0x0100 — Terminal 15 / live signals snapshot
-  //  [ign:u8][rpm:u16 BE][spd_x10:u16 BE][fuel:u8][clt:i8]
+  // Bench identity DIDs (editable via Companion / 0x2E)
+  // 0x0101 FA (ASCII), 0x0102 I-Stufe, 0x0103 Model/Baureihe
+  if (did == 0x0101) {
+    const size_t n = replyAsciiDid(out, outMax, did, id.fa);
+    return n ? n : neg(out, outMax, 0x22, 0x10);
+  }
+  if (did == 0x0102) {
+    const size_t n = replyAsciiDid(out, outMax, did, id.iStufe);
+    return n ? n : neg(out, outMax, 0x22, 0x10);
+  }
+  if (did == 0x0103) {
+    const size_t n = replyAsciiDid(out, outMax, did, id.model);
+    return n ? n : neg(out, outMax, 0x22, 0x10);
+  }
+
   if (did == 0x0100) {
     const bmw::LiveSignals s = bmw::getSignals();
     if (outMax < 3 + 7) return neg(out, outMax, 0x22, 0x10);
@@ -111,43 +124,65 @@ size_t handleReadDid(const uint8_t* req, size_t len, uint8_t* out, size_t outMax
     return 10;
   }
 
-  // F18C — ECU Serial Number (placeholder ASCII)
-  if (did == 0xF18C) {
-    const char* sn = "BDC-EMU-0001";
-    const size_t n = strlen(sn);
-    if (outMax < 3 + n) return neg(out, outMax, 0x22, 0x10);
-    out[0] = 0x62;
-    out[1] = 0xF1;
-    out[2] = 0x8C;
-    memcpy(out + 3, sn, n);
-    return 3 + n;
+  return neg(out, outMax, 0x22, 0x31);
+}
+
+size_t handleWriteDid(const uint8_t* req, size_t len, uint8_t* out, size_t outMax) {
+  // Require extended session for identity writes
+  if (g_session != 0x03) return neg(out, outMax, 0x2E, 0x7E);  // not in correct session
+  if (len < 4) return neg(out, outMax, 0x2E, 0x13);
+  const uint16_t did = (uint16_t)((req[1] << 8) | req[2]);
+  const char* data = (const char*)(req + 3);
+  const size_t dataLen = len - 3;
+
+  char tmp[bdc_config::kFaMax + 1];
+  if (dataLen > bdc_config::kFaMax) return neg(out, outMax, 0x2E, 0x13);
+  memcpy(tmp, data, dataLen);
+  tmp[dataLen] = '\0';
+
+  bool ok = false;
+  if (did == 0xF190) {
+    ok = bdc_config::setVin(tmp);
+  } else if (did == 0xF18C) {
+    ok = bdc_config::setSerial(tmp);
+  } else if (did == 0x0101) {
+    ok = bdc_config::setFa(tmp);
+  } else if (did == 0x0102) {
+    ok = bdc_config::setIStufe(tmp);
+  } else if (did == 0x0103) {
+    ok = bdc_config::setModel(tmp);
+  } else {
+    return neg(out, outMax, 0x2E, 0x31);
   }
 
-  return neg(out, outMax, 0x22, 0x31);  // requestOutOfRange
+  if (!ok) return neg(out, outMax, 0x2E, 0x22);  // conditionsNotCorrect
+  bdc_config::save();
+  if (outMax < 3) return 0;
+  out[0] = 0x6E;
+  out[1] = req[1];
+  out[2] = req[2];
+  return 3;
 }
 
 size_t handleClearDtc(const uint8_t* req, size_t len, uint8_t* out, size_t outMax) {
   (void)req;
   if (len < 4) return neg(out, outMax, 0x14, 0x13);
-  // Accept group 0xFFFFFF
   return posSid(out, outMax, 0x14);
 }
 
 size_t handleReadDtc(const uint8_t* req, size_t len, uint8_t* out, size_t outMax) {
   if (len < 2) return neg(out, outMax, 0x19, 0x13);
   const uint8_t sf = req[1];
-  // 0x01 reportNumberOfDTCByStatusMask — return 0 DTCs
   if (sf == 0x01) {
     if (len < 3 || outMax < 6) return neg(out, outMax, 0x19, 0x13);
     out[0] = 0x59;
     out[1] = 0x01;
-    out[2] = req[2];  // echo status mask
-    out[3] = 0x00;    // ISO15031-6 DTCFormat
-    out[4] = 0x00;    // count hi
-    out[5] = 0x00;    // count lo
+    out[2] = req[2];
+    out[3] = 0x00;
+    out[4] = 0x00;
+    out[5] = 0x00;
     return 6;
   }
-  // 0x02 reportDTCByStatusMask — empty list
   if (sf == 0x02) {
     if (len < 3 || outMax < 3) return neg(out, outMax, 0x19, 0x13);
     out[0] = 0x59;
@@ -162,7 +197,7 @@ size_t handleReadDtc(const uint8_t* req, size_t len, uint8_t* out, size_t outMax
 
 bool init() {
   g_session = 0x01;
-  Serial.println(F("[UDS] BDC server ready (shared CAN OBD + DoIP)"));
+  Serial.println(F("[UDS] BDC server ready (VIN/FA from bdc_config)"));
   return true;
 }
 
@@ -173,20 +208,21 @@ uint8_t currentSession() {
 size_t handleRequest(const uint8_t* req, size_t reqLen, uint8_t* out, size_t outMax) {
   if (!req || !out || reqLen == 0 || outMax < 3) return 0;
 
-  const uint8_t sid = req[0];
-  switch (sid) {
+  switch (req[0]) {
     case 0x10:
       return handleSession(req, reqLen, out, outMax);
     case 0x3E:
       return handleTesterPresent(req, reqLen, out, outMax);
     case 0x22:
       return handleReadDid(req, reqLen, out, outMax);
+    case 0x2E:
+      return handleWriteDid(req, reqLen, out, outMax);
     case 0x14:
       return handleClearDtc(req, reqLen, out, outMax);
     case 0x19:
       return handleReadDtc(req, reqLen, out, outMax);
     default:
-      return neg(out, outMax, sid, 0x11);  // serviceNotSupported
+      return neg(out, outMax, req[0], 0x11);
   }
 }
 

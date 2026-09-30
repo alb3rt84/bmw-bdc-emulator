@@ -10,6 +10,7 @@
 #include <Arduino.h>
 
 #include "bmw_frames.h"
+#include "bdc_config.h"
 #include "can_bus.h"
 #include "config.h"
 #include "doip_server.h"
@@ -47,6 +48,7 @@ void setup() {
     Serial.println(F("[FATAL] No CAN controller available"));
   }
 
+  bdc_config::init();
   uds_bdc::init();
   obd_can::init();
   lin::init();

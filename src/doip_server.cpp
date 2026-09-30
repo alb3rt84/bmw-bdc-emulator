@@ -4,6 +4,7 @@
  */
 
 #include "doip_server.h"
+#include "bdc_config.h"
 #include "config.h"
 #include "uds_bdc.h"
 
@@ -32,8 +33,12 @@ constexpr uint16_t kPtDiagnosticMessage    = 0x8001;
 constexpr uint16_t kPtDiagnosticMessageAck = 0x8002;
 constexpr uint16_t kPtDiagnosticMessageNack = 0x8003;
 
-constexpr uint16_t kLaGateway = uds_bdc::kLogicalAddress;
 constexpr uint16_t kLaTester  = 0x0E00;
+
+uint16_t gatewayLa() {
+  const uint16_t la = bdc_config::get().logicalAddress;
+  return la ? la : uds_bdc::kLogicalAddress;
+}
 
 bool g_ethReady = false;
 int  g_udpSock  = -1;
@@ -69,10 +74,11 @@ size_t buildHeader(uint8_t* out, uint16_t payloadType, uint32_t payloadLen) {
 }
 
 size_t buildVehicleAnnounce(uint8_t* payload) {
-  const char vin[17] = {'W','B','A','D','E','M','O','G','C','H','A','S','S','I','S','0','1'};
-  memcpy(payload + 0, vin, 17);
-  writeU16Be(payload + 17, kLaGateway);
-  memset(payload + 19, 0x00, 12);
+  const bdc_config::Identity& id = bdc_config::get();
+  memset(payload, 0, 32);
+  memcpy(payload + 0, id.vin, 17);
+  writeU16Be(payload + 17, gatewayLa());
+  // EID/GID left zero for bench
   payload[31] = 0x00;
   return 32;
 }
@@ -142,7 +148,7 @@ void handleTcpClient(int client) {
       } else {
         writeU16Be(resp + 8, kLaTester);
       }
-      writeU16Be(resp + 10, kLaGateway);
+      writeU16Be(resp + 10, gatewayLa());
       resp[12] = 0x10;
       send(client, resp, sizeof(resp), 0);
       Serial.println(F("[DoIP] Routing activation OK"));
@@ -154,7 +160,7 @@ void handleTcpClient(int client) {
       const uint16_t ta = readU16Be(buf + 10);  // target ECU
 
       // Only answer when targeted at our BDC LA (or broadcast 0xE400-ish skip)
-      if (ta != kLaGateway) {
+      if (ta != gatewayLa()) {
         uint8_t nack[8 + 5] = {};
         buildHeader(nack, kPtDiagnosticMessageNack, 5);
         memcpy(nack + 8, buf + 8, 4);
@@ -173,11 +179,11 @@ void handleTcpClient(int client) {
       ack[12] = 0x00;
       send(client, ack, sizeof(ack), 0);
 
-      uint8_t resp[256];
-      const size_t respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
+      uint8_t respUds[256];
+      const size_t respLen = uds_bdc::handleRequest(uds, udsLen, respUds, sizeof(respUds));
       if (respLen > 0) {
         // Swap SA/TA for reply: BDC → tester
-        sendDiagnosticResponse(client, kLaGateway, sa, resp, respLen);
+        sendDiagnosticResponse(client, gatewayLa(), sa, respUds, respLen);
       }
     }
   }
@@ -281,7 +287,7 @@ void serverTask(void* /*arg*/) {
   fcntl(g_tcpSock, F_SETFL, O_NONBLOCK);
 
   Serial.printf("[DoIP] BDC LA=0x%04X listening UDP/TCP :%u (IP %s)\n",
-                kLaGateway, DOIP_TCP_DATA_PORT,
+                gatewayLa(), DOIP_TCP_DATA_PORT,
                 ETH.localIP().toString().c_str());
 
   for (;;) {

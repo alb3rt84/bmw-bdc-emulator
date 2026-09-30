@@ -1,20 +1,17 @@
 /**
  * @file pc_link.cpp
- * @brief Parse companion JSON commands from Serial and UDP port 13401.
+ * @brief Companion JSON: live signals + BDC identity (VIN/FA/…).
  *
- * Protocol (one JSON object per line, \\n terminated):
  *   {"cmd":"ping"}
- *   {"cmd":"get"}
  *   {"cmd":"ign","on":1}
- *   {"cmd":"sig","rpm":1500,"spd":60.5,"fuel":75,"clt":90}
- *   {"cmd":"ign","on":0}   // Terminal 15 OFF
- *
- * Responses (also JSON line):
- *   {"ok":1,"ign":1,"rpm":1500,"spd":60.5,"fuel":75,"clt":90}
- *   {"ok":0,"err":"..."}
+ *   {"cmd":"sig","rpm":1500,"spd":60,"fuel":75,"clt":90}
+ *   {"cmd":"cfg"}                         // get identity
+ *   {"cmd":"cfg","vin":"WBA...","fa":"...","istufe":"...","serial":"...","model":"G30","la":16,"save":1}
+ *   {"cmd":"cfg","reset":1,"save":1}
  */
 
 #include "pc_link.h"
+#include "bdc_config.h"
 #include "bmw_frames.h"
 #include "config.h"
 
@@ -31,7 +28,7 @@ namespace {
 
 WiFiUDP g_udp;
 bool g_udpStarted = false;
-char g_serialBuf[256];
+char g_serialBuf[512];
 size_t g_serialLen = 0;
 
 constexpr uint16_t kCompanionUdpPort = 13401;
@@ -54,6 +51,32 @@ int parseIntField(const char* json, const char* key, bool* found) {
   return (int)lroundf(parseFloatField(json, key, found));
 }
 
+bool parseStringField(const char* json, const char* key, char* out, size_t outMax) {
+  if (!out || outMax == 0) return false;
+  out[0] = '\0';
+  char pat[32];
+  snprintf(pat, sizeof(pat), "\"%s\"", key);
+  const char* p = strstr(json, pat);
+  if (!p) return false;
+  p = strchr(p + strlen(pat), ':');
+  if (!p) return false;
+  p++;
+  while (*p == ' ' || *p == '\t') p++;
+  if (*p != '"') return false;
+  p++;
+  size_t i = 0;
+  while (*p && *p != '"' && i + 1 < outMax) {
+    if (*p == '\\' && p[1]) {
+      p++;
+      out[i++] = *p++;
+      continue;
+    }
+    out[i++] = *p++;
+  }
+  out[i] = '\0';
+  return true;
+}
+
 const char* parseCmd(const char* json) {
   const char* p = strstr(json, "\"cmd\"");
   if (!p) return nullptr;
@@ -61,7 +84,7 @@ const char* parseCmd(const char* json) {
   if (!p) return nullptr;
   p = strchr(p, '"');
   if (!p) return nullptr;
-  return p + 1;  // start of command token
+  return p + 1;
 }
 
 bool cmdEquals(const char* cmdStart, const char* name) {
@@ -71,11 +94,41 @@ bool cmdEquals(const char* cmdStart, const char* name) {
          (cmdStart[n] == '"' || cmdStart[n] == '\0');
 }
 
+void jsonEscape(const char* in, char* out, size_t outMax) {
+  size_t o = 0;
+  for (size_t i = 0; in && in[i] && o + 2 < outMax; i++) {
+    const char c = in[i];
+    if (c == '"' || c == '\\') {
+      out[o++] = '\\';
+      out[o++] = c;
+    } else if ((uint8_t)c < 0x20) {
+      continue;
+    } else {
+      out[o++] = c;
+    }
+  }
+  out[o] = '\0';
+}
+
 void replyStatus(Print& out) {
   const bmw::LiveSignals s = bmw::getSignals();
   out.printf("{\"ok\":1,\"ign\":%d,\"rpm\":%u,\"spd\":%.1f,\"fuel\":%.1f,\"clt\":%d}\n",
              s.ignitionOn ? 1 : 0, (unsigned)s.rpm, (double)s.speedKmh,
              (double)s.fuelPct, (int)s.coolantC);
+}
+
+void replyCfg(Print& out) {
+  const bdc_config::Identity& id = bdc_config::get();
+  char vin[40], fa[280], ist[48], ser[48], model[24];
+  jsonEscape(id.vin, vin, sizeof(vin));
+  jsonEscape(id.fa, fa, sizeof(fa));
+  jsonEscape(id.iStufe, ist, sizeof(ist));
+  jsonEscape(id.serial, ser, sizeof(ser));
+  jsonEscape(id.model, model, sizeof(model));
+  out.printf(
+      "{\"ok\":1,\"cfg\":1,\"vin\":\"%s\",\"fa\":\"%s\",\"istufe\":\"%s\","
+      "\"serial\":\"%s\",\"model\":\"%s\",\"la\":%u}\n",
+      vin, fa, ist, ser, model, (unsigned)id.logicalAddress);
 }
 
 void handleLine(const char* line, Print& out) {
@@ -106,31 +159,54 @@ void handleLine(const char* line, Print& out) {
 
   if (cmdEquals(cmd, "sig")) {
     bool f = false;
-    if (strstr(line, "\"rpm\"")) {
-      bmw::setRpm((uint16_t)parseIntField(line, "rpm", &f));
-    }
-    if (strstr(line, "\"spd\"")) {
-      bmw::setSpeedKmh(parseFloatField(line, "spd", &f));
-    }
-    if (strstr(line, "\"fuel\"")) {
-      bmw::setFuelPct(parseFloatField(line, "fuel", &f));
-    }
-    if (strstr(line, "\"clt\"")) {
-      bmw::setCoolantC((int16_t)parseIntField(line, "clt", &f));
-    }
+    if (strstr(line, "\"rpm\"")) bmw::setRpm((uint16_t)parseIntField(line, "rpm", &f));
+    if (strstr(line, "\"spd\"")) bmw::setSpeedKmh(parseFloatField(line, "spd", &f));
+    if (strstr(line, "\"fuel\"")) bmw::setFuelPct(parseFloatField(line, "fuel", &f));
+    if (strstr(line, "\"clt\"")) bmw::setCoolantC((int16_t)parseIntField(line, "clt", &f));
     replyStatus(out);
+    return;
+  }
+
+  if (cmdEquals(cmd, "cfg")) {
+    bool dummy = false;
+    if (parseIntField(line, "reset", &dummy) != 0 && dummy) {
+      bdc_config::resetDefaults();
+    }
+
+    bdc_config::Identity patch = {};
+    const bool hasVin = parseStringField(line, "vin", patch.vin, sizeof(patch.vin));
+    const bool hasFa = parseStringField(line, "fa", patch.fa, sizeof(patch.fa));
+    const bool hasIst = parseStringField(line, "istufe", patch.iStufe, sizeof(patch.iStufe));
+    const bool hasSer = parseStringField(line, "serial", patch.serial, sizeof(patch.serial));
+    const bool hasModel = parseStringField(line, "model", patch.model, sizeof(patch.model));
+    bool hasLa = false;
+    const int la = parseIntField(line, "la", &hasLa);
+    if (hasLa) patch.logicalAddress = (uint16_t)la;
+
+    if (hasVin || hasFa || hasIst || hasSer || hasModel || hasLa) {
+      if (!bdc_config::applyPatch(patch, hasVin, hasFa, hasIst, hasSer, hasModel, hasLa)) {
+        out.println(F("{\"ok\":0,\"err\":\"cfg_reject\"}"));
+        return;
+      }
+    }
+
+    bool saveFlag = false;
+    if (parseIntField(line, "save", &saveFlag) != 0 && saveFlag) {
+      bdc_config::save();
+    }
+
+    replyCfg(out);
     return;
   }
 
   out.println(F("{\"ok\":0,\"err\":\"unknown_cmd\"}"));
 }
 
-/** Lightweight Print adapter that sends one UDP datagram to last peer. */
 class UdpReplyPrinter : public Print {
  public:
   IPAddress ip;
   uint16_t port = 0;
-  char buf[240];
+  char buf[480];
   size_t len = 0;
 
   size_t write(uint8_t c) override {
@@ -159,14 +235,13 @@ void pollSerial() {
     if (g_serialLen + 1 < sizeof(g_serialBuf)) {
       g_serialBuf[g_serialLen++] = c;
     } else {
-      g_serialLen = 0;  // overflow — resync
+      g_serialLen = 0;
     }
   }
 }
 
 void pollUdp() {
   if (!g_udpStarted) {
-    // Start once Ethernet has an IP (DoIP task brings ETH up)
     if (ETH.linkUp() && ETH.localIP()[0] != 0) {
       if (g_udp.begin(kCompanionUdpPort)) {
         g_udpStarted = true;
@@ -178,11 +253,10 @@ void pollUdp() {
 
   int n = g_udp.parsePacket();
   while (n > 0) {
-    char buf[256];
+    char buf[512];
     const int r = g_udp.read(buf, sizeof(buf) - 1);
     if (r > 0) {
       buf[r] = '\0';
-      // Trim trailing CR/LF
       size_t L = (size_t)r;
       while (L > 0 && (buf[L - 1] == '\n' || buf[L - 1] == '\r')) {
         buf[--L] = '\0';
@@ -205,7 +279,7 @@ void pollUdp() {
 }  // namespace
 
 bool init() {
-  Serial.println(F("[PC] Link ready (USB-Serial JSON + UDP :13401)"));
+  Serial.println(F("[PC] Link ready (signals + cfg VIN/FA)"));
   return true;
 }
 
