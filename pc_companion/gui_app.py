@@ -3,7 +3,7 @@
 BMW BDC/ZGM Bench Companion — improved GUI
 
 Tabs:
-  1) Live Control  — JSON Serial/UDP :13401 (KL15, RPM, speed, fuel, coolant)
+  1) Live Control  — JSON Serial/UDP :13401, or Robotell USB-CAN (CH340)
   2) DoIP UDS      — factory-style diagnostics over Ethernet :13400 (same as ISTA path)
   3) Log
 
@@ -29,6 +29,9 @@ try:
 except ImportError:  # pragma: no cover
     serial = None
     list_ports = None
+
+from bmw_cyclic import Signals, due
+from robotell_can import RobotellCan
 
 
 APP_TITLE = "BMW BDC/ZGM Bench Companion"
@@ -274,16 +277,27 @@ class CompanionApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title(APP_TITLE)
-        self.geometry("720x680")
-        self.minsize(640, 600)
 
         self._ctrl: SerialTransport | UdpTransport | None = None
-        self._rx_q: queue.Queue[str] = queue.Queue()
+        self._robotell: RobotellCan | None = None
+        self._rx_q: queue.Queue = queue.Queue()
         self._rx_stop = threading.Event()
         self._rx_thread: threading.Thread | None = None
+        self._can_stop = threading.Event()
+        self._can_thread: threading.Thread | None = None
+        self._connect_cancel = threading.Event()
+        self._connecting = False
         self._pending_sig = False
         self._last_sig_sent = 0.0
         self._doip = DoipClient()
+        self._signals = Signals()
+        self._cyclic_enabled = True
+        self._tx_count = 0
+        self._rx_count = 0
+        self._rx_seen: dict[int, int] = {}
+        self._port_map: dict[str, str] = {}
+        self.geometry("860x820")
+        self.minsize(760, 700)
 
         self._build_ui()
         self._refresh_ports()
@@ -315,18 +329,20 @@ class CompanionApp(tk.Tk):
     # ----------------------------- Live Control -----------------------------
     def _build_live_tab(self) -> None:
         pad = {"padx": 10, "pady": 6}
-        conn = ttk.LabelFrame(self.tab_live, text="JSON companion link (Serial / UDP :13401)")
+        conn = ttk.LabelFrame(self.tab_live, text="Link: ESP32 JSON  or  Robotell USB-CAN")
         conn.pack(fill="x", **pad)
 
-        self.mode = tk.StringVar(value="serial")
-        ttk.Radiobutton(conn, text="Serial COM", variable=self.mode, value="serial",
+        self.mode = tk.StringVar(value="robotell")
+        ttk.Radiobutton(conn, text="Robotell USB-CAN", variable=self.mode, value="robotell",
                         command=self._mode_changed).grid(row=0, column=0, sticky="w", padx=8, pady=4)
-        ttk.Radiobutton(conn, text="UDP :13401", variable=self.mode, value="udp",
+        ttk.Radiobutton(conn, text="Serial COM (ESP32)", variable=self.mode, value="serial",
                         command=self._mode_changed).grid(row=0, column=1, sticky="w", padx=8, pady=4)
+        ttk.Radiobutton(conn, text="UDP :13401", variable=self.mode, value="udp",
+                        command=self._mode_changed).grid(row=0, column=2, sticky="w", padx=8, pady=4)
 
         ttk.Label(conn, text="COM").grid(row=1, column=0, sticky="w", padx=8)
         self.port_var = tk.StringVar()
-        self.port_combo = ttk.Combobox(conn, textvariable=self.port_var, width=18, state="readonly")
+        self.port_combo = ttk.Combobox(conn, textvariable=self.port_var, width=42, state="readonly")
         self.port_combo.grid(row=1, column=1, sticky="we", padx=4)
         ttk.Button(conn, text="Refresh", command=self._refresh_ports).grid(row=1, column=2, padx=4)
 
@@ -337,12 +353,45 @@ class CompanionApp(tk.Tk):
 
         self.conn_btn = ttk.Button(conn, text="Connect", command=self._toggle_ctrl)
         self.conn_btn.grid(row=3, column=0, columnspan=2, sticky="we", padx=8, pady=8)
-        self.ctrl_status = tk.StringVar(value="Disconnected")
+        self.ctrl_status = tk.StringVar(value="Rozłączony")
         ttk.Label(conn, textvariable=self.ctrl_status).grid(row=3, column=2, sticky="w")
+
+        self.robotell_row = ttk.Frame(conn)
+        self.robotell_row.grid(row=4, column=0, columnspan=3, sticky="we", padx=4, pady=2)
+        ttk.Label(self.robotell_row, text="USB baud").pack(side="left", padx=4)
+        self.usb_baud_var = tk.StringVar(value="115200")
+        ttk.Combobox(
+            self.robotell_row, textvariable=self.usb_baud_var, width=10,
+            values=("115200", "2000000", "1000000", "921600", "460800", "230400", "57600", "38400", "19200", "9600"),
+        ).pack(side="left", padx=4)
+        ttk.Label(self.robotell_row, text="CAN bit/s").pack(side="left", padx=8)
+        self.can_bitrate_var = tk.StringVar(value="500000")
+        ttk.Combobox(
+            self.robotell_row, textvariable=self.can_bitrate_var, width=10,
+            values=("500000", "250000", "125000", "100000", "1000000"),
+        ).pack(side="left", padx=4)
+        self.auto_baud_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(self.robotell_row, text="Auto USB baud", variable=self.auto_baud_var).pack(side="left", padx=8)
+        self.cyclic_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            self.robotell_row, text="Nadawaj ramki BDC", variable=self.cyclic_var,
+            command=self._on_cyclic_toggle,
+        ).pack(side="left", padx=4)
+
+        self.robotell_hint = ttk.Label(
+            conn,
+            text=(
+                "Adapter Robotell (CH340). Auto USB baud sprawdza 115200 i 2000000. "
+                "CAN BMW = 500000. Port zajęty = zamknij EmbededDebug. Brak COM = sterownik CH340. "
+                "Odznacz „Nadawaj ramki BDC”, jeśli chcesz tylko podsłuchiwać magistralę."
+            ),
+            wraplength=780,
+        )
+        self.robotell_hint.grid(row=5, column=0, columnspan=3, sticky="w", padx=8, pady=4)
         conn.columnconfigure(1, weight=1)
 
         dash = ttk.LabelFrame(self.tab_live, text="Bench signals → cyclic CAN")
-        dash.pack(fill="both", expand=True, **pad)
+        dash.pack(fill="x", **pad)
 
         self.ign_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(
@@ -363,7 +412,34 @@ class CompanionApp(tk.Tk):
         btns.pack(fill="x", padx=12, pady=8)
         ttk.Button(btns, text="Idle preset", command=self._preset_idle).pack(side="left", padx=4)
         ttk.Button(btns, text="Drive 50 km/h", command=self._preset_drive).pack(side="left", padx=4)
-        ttk.Button(btns, text="Ping ECU JSON", command=lambda: self._ctrl_send({"cmd": "ping"})).pack(side="left", padx=4)
+        ttk.Button(btns, text="Ping", command=self._ping).pack(side="left", padx=4)
+
+        mon = ttk.LabelFrame(self.tab_live, text="Robotell CAN monitor")
+        mon.pack(fill="both", expand=True, **pad)
+        self.can_counter = tk.StringVar(value="TX 0    RX 0")
+        ttk.Label(mon, textvariable=self.can_counter).pack(anchor="w", padx=8, pady=2)
+        cols = ("id", "dlc", "data", "count")
+        self.can_tree = ttk.Treeview(mon, columns=cols, show="headings", height=6)
+        self.can_tree.heading("id", text="ID")
+        self.can_tree.heading("dlc", text="DLC")
+        self.can_tree.heading("data", text="Data")
+        self.can_tree.heading("count", text="Count")
+        self.can_tree.column("id", width=90, stretch=False)
+        self.can_tree.column("dlc", width=50, stretch=False)
+        self.can_tree.column("data", width=280, stretch=True)
+        self.can_tree.column("count", width=70, stretch=False)
+        self.can_tree.pack(fill="both", expand=True, padx=8, pady=4)
+
+        raw = ttk.Frame(mon)
+        raw.pack(fill="x", padx=8, pady=4)
+        ttk.Label(raw, text="ID hex").pack(side="left")
+        self.tx_id_var = tk.StringVar(value="12F")
+        ttk.Entry(raw, textvariable=self.tx_id_var, width=10).pack(side="left", padx=4)
+        ttk.Label(raw, text="Data").pack(side="left")
+        self.tx_data_var = tk.StringVar(value="45 FF 45 FF FF FF FF FF")
+        ttk.Entry(raw, textvariable=self.tx_data_var, width=36).pack(side="left", padx=4, fill="x", expand=True)
+        ttk.Button(raw, text="Send CAN", command=self._manual_can_send).pack(side="left", padx=4)
+        ttk.Button(raw, text="Clear", command=self._clear_can_monitor).pack(side="left", padx=4)
 
         self._mode_changed()
 
@@ -481,23 +557,53 @@ class CompanionApp(tk.Tk):
 
     # ----------------------------- Live conn -------------------------------
     def _mode_changed(self) -> None:
-        serial_mode = self.mode.get() == "serial"
-        self.port_combo.configure(state="readonly" if serial_mode else "disabled")
-        self.ip_entry.configure(state="disabled" if serial_mode else "normal")
+        mode = self.mode.get()
+        uses_com = mode in ("serial", "robotell")
+        self.port_combo.configure(state="readonly" if uses_com else "disabled")
+        self.ip_entry.configure(state="normal" if mode == "udp" else "disabled")
+        if mode == "robotell":
+            self.robotell_row.grid()
+            self.robotell_hint.grid()
+        else:
+            self.robotell_row.grid_remove()
+            self.robotell_hint.grid_remove()
+
+    def _selected_port(self) -> str:
+        label = self.port_var.get().strip()
+        if label in self._port_map:
+            return self._port_map[label]
+        return label.split(" — ")[0].strip()
 
     def _refresh_ports(self) -> None:
-        ports = [p.device for p in list_ports.comports()] if list_ports else []
-        self.port_combo["values"] = ports
-        if ports and not self.port_var.get():
-            self.port_var.set(ports[0])
+        self._port_map = {}
+        labels: list[str] = []
+        preferred = ""
+        if list_ports:
+            for p in list_ports.comports():
+                bits = []
+                if p.description and p.description not in ("n/a", p.device):
+                    bits.append(p.description)
+                if p.vid is not None and p.pid is not None:
+                    bits.append(f"{p.vid:04X}:{p.pid:04X}")
+                label = p.device if not bits else f"{p.device} — {' '.join(bits)}"
+                self._port_map[label] = p.device
+                labels.append(label)
+                if p.vid == 0x1A86 and not preferred:
+                    preferred = label
+        self.port_combo["values"] = labels
+        if self.port_var.get() not in labels:
+            self.port_var.set(preferred or (labels[0] if labels else ""))
 
     def _toggle_ctrl(self) -> None:
-        if self._ctrl is not None:
+        if self._ctrl is not None or self._robotell is not None or self._connecting:
             self._ctrl_disconnect()
+            return
+        if self.mode.get() == "robotell":
+            self._connect_robotell()
             return
         try:
             if self.mode.get() == "serial":
-                port = self.port_var.get().strip()
+                port = self._selected_port()
                 if not port:
                     raise RuntimeError("Select a COM port")
                 self._ctrl = SerialTransport(port)
@@ -521,16 +627,156 @@ class CompanionApp(tk.Tk):
         self._pending_sig = True
         self.global_status.set("Live control connected")
 
+    def _connect_robotell(self) -> None:
+        port = self._selected_port()
+        if not port:
+            messagebox.showerror(
+                APP_TITLE,
+                "Brak portu COM.\nWepnij adapter Robotell i zainstaluj sterownik CH340, potem Refresh.",
+            )
+            return
+        try:
+            usb_baud = int(self.usb_baud_var.get().strip())
+            can_bitrate = int(self.can_bitrate_var.get().strip())
+        except ValueError:
+            messagebox.showerror(APP_TITLE, "USB baud i CAN bit/s muszą być liczbami.")
+            return
+
+        self._connecting = True
+        self._connect_cancel.clear()
+        self._cyclic_enabled = bool(self.cyclic_var.get())
+        self.conn_btn.configure(text="Anuluj")
+        self.ctrl_status.set("Szukam adaptera…")
+        auto = bool(self.auto_baud_var.get())
+
+        def work() -> None:
+            can = RobotellCan()
+            try:
+                def status(text: str) -> None:
+                    if self._connect_cancel.is_set():
+                        raise RuntimeError("Anulowano")
+                    self._rx_q.put(("status", text))
+
+                result = can.open(
+                    port,
+                    usb_baud,
+                    can_bitrate,
+                    auto_usb_baud=auto,
+                    on_status=status,
+                )
+                if self._connect_cancel.is_set():
+                    can.close()
+                    self._rx_q.put(("cancel",))
+                    return
+                self._rx_q.put(("connected", can, result))
+            except Exception as exc:
+                can.close()
+                if self._connect_cancel.is_set():
+                    self._rx_q.put(("cancel",))
+                else:
+                    self._rx_q.put(("fail", str(exc)))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_robotell_connected(self, can: RobotellCan, result) -> None:
+        if self._connect_cancel.is_set():
+            can.close()
+            self._on_connect_cancelled()
+            return
+        self._connecting = False
+        self._robotell = can
+        self._tx_count = 0
+        self._rx_count = 0
+        sn = f"  S/N {result.serial_number}" if result.serial_number else ""
+        text = f"Robotell {result.port}  USB {result.usb_baud}  CAN {result.can_bitrate}{sn}"
+        self.ctrl_status.set(text)
+        self.conn_btn.configure(text="Disconnect")
+        self.global_status.set("Robotell USB-CAN połączony")
+        self._append_log(text)
+        self._publish_signals()
+        self._can_stop.clear()
+        self._can_thread = threading.Thread(target=self._can_worker, daemon=True)
+        self._can_thread.start()
+
+    def _on_robotell_fail(self, err: str) -> None:
+        self._connecting = False
+        self._robotell = None
+        self.conn_btn.configure(text="Connect")
+        self.ctrl_status.set("Brak połączenia")
+        self.global_status.set("Robotell: brak odpowiedzi")
+        self._append_log("Robotell: " + err)
+        messagebox.showerror(APP_TITLE, err)
+
+    def _on_can_link_lost(self, err: str) -> None:
+        if self._robotell is not None:
+            self._robotell.close()
+            self._robotell = None
+        self._connecting = False
+        self.conn_btn.configure(text="Connect")
+        self.ctrl_status.set("Połączenie USB zerwane")
+        self.global_status.set("Robotell rozłączony")
+        self._append_log("Robotell link lost: " + err)
+
+    def _on_connect_cancelled(self) -> None:
+        self._connecting = False
+        if self._robotell is None:
+            self.conn_btn.configure(text="Connect")
+            self.ctrl_status.set("Anulowano")
+
+    def _on_cyclic_toggle(self) -> None:
+        self._cyclic_enabled = bool(self.cyclic_var.get())
+
     def _ctrl_disconnect(self) -> None:
+        self._connect_cancel.set()
+        self._can_stop.set()
         self._rx_stop.set()
+        if self._can_thread and self._can_thread.is_alive():
+            self._can_thread.join(timeout=0.8)
+        self._can_thread = None
         if self._rx_thread and self._rx_thread.is_alive():
             self._rx_thread.join(timeout=0.5)
         self._rx_thread = None
         if self._ctrl:
             self._ctrl.close()
         self._ctrl = None
+        if self._robotell:
+            self._robotell.close()
+        self._robotell = None
+        self._connecting = False
         self.conn_btn.configure(text="Connect")
-        self.ctrl_status.set("Disconnected")
+        self.ctrl_status.set("Rozłączony")
+        self.global_status.set("Rozłączony")
+
+    def _can_worker(self) -> None:
+        last: dict[int, float] = {}
+        while not self._can_stop.is_set():
+            can = self._robotell
+            if can is None:
+                break
+            if self._cyclic_enabled:
+                now = time.monotonic()
+                for can_id, data in due(self._signals, last, now):
+                    try:
+                        can.send(can_id, data)
+                        self._tx_count += 1
+                    except Exception as exc:
+                        self._rx_q.put(("lost", str(exc)))
+                        self._can_stop.set()
+                        break
+            try:
+                while not self._can_stop.is_set():
+                    frame = can.recv(0)
+                    if frame is None:
+                        break
+                    if frame.arbitration_id >= 0x01FFFE00:
+                        continue
+                    self._rx_count += 1
+                    self._rx_q.put(("can", frame))
+            except Exception as exc:
+                self._rx_q.put(("lost", str(exc)))
+                self._can_stop.set()
+                break
+            time.sleep(0.002)
 
     def _rx_loop(self) -> None:
         while not self._rx_stop.is_set():
@@ -544,11 +790,89 @@ class CompanionApp(tk.Tk):
     def _poll_rx(self) -> None:
         try:
             while True:
-                line = self._rx_q.get_nowait()
-                self._append_log("CTRL << " + line)
+                item = self._rx_q.get_nowait()
+                if isinstance(item, tuple) and item:
+                    kind = item[0]
+                    if kind == "can":
+                        self._note_can_frame(item[1])
+                    elif kind == "status":
+                        self.ctrl_status.set(item[1])
+                    elif kind == "connected":
+                        self._on_robotell_connected(item[1], item[2])
+                    elif kind == "fail":
+                        self._on_robotell_fail(item[1])
+                    elif kind == "cancel":
+                        self._on_connect_cancelled()
+                    elif kind == "lost":
+                        self._on_can_link_lost(item[1])
+                    else:
+                        self._append_log("CTRL << " + str(item))
+                else:
+                    self._append_log("CTRL << " + str(item))
         except queue.Empty:
             pass
+        self._update_can_counters()
         self.after(50, self._poll_rx)
+
+    def _note_can_frame(self, frame) -> None:
+        can_id = frame.arbitration_id
+        count = self._rx_seen.get(can_id, 0) + 1
+        self._rx_seen[can_id] = count
+        data = hex_bytes(frame.data) if frame.data else ("REMOTE" if frame.is_remote else "")
+        suffix = " X" if frame.is_extended else ""
+        iid = f"{can_id:X}{suffix}"
+        values = (f"0x{can_id:X}{suffix}", frame.dlc, data, count)
+        if self.can_tree.exists(iid):
+            self.can_tree.item(iid, values=values)
+        else:
+            self.can_tree.insert("", "end", iid=iid, values=values)
+
+    def _update_can_counters(self) -> None:
+        self.can_counter.set(f"TX {self._tx_count}    RX {self._rx_count}")
+
+    def _clear_can_monitor(self) -> None:
+        kids = self.can_tree.get_children()
+        if kids:
+            self.can_tree.delete(*kids)
+        self._rx_seen.clear()
+        self._rx_count = 0
+
+    def _manual_can_send(self) -> None:
+        if self._robotell is None:
+            messagebox.showinfo(APP_TITLE, "Najpierw połącz adapter Robotell (tryb Robotell USB-CAN).")
+            return
+        try:
+            can_id = int(self.tx_id_var.get().strip(), 16)
+            data = parse_hex_bytes(self.tx_data_var.get())
+        except ValueError:
+            messagebox.showerror(APP_TITLE, "Zły zapis hex (ID albo dane).")
+            return
+        if not 0 <= can_id <= 0x1FFFFFFF or len(data) > 8:
+            messagebox.showerror(APP_TITLE, "ID poza zakresem albo więcej niż 8 bajtów danych.")
+            return
+        try:
+            self._robotell.send(can_id, data, extended=can_id > 0x7FF)
+            self._tx_count += 1
+            self._append_log(f"CAN TX 0x{can_id:X} {hex_bytes(data)}")
+        except Exception as exc:
+            messagebox.showerror(APP_TITLE, str(exc))
+
+    def _ping(self) -> None:
+        if self._robotell is not None:
+            self._append_log(
+                f"{self.ctrl_status.get()}  TX {self._tx_count}  RX {self._rx_count}"
+            )
+            return
+        self._ctrl_send({"cmd": "ping"})
+
+    def _publish_signals(self) -> None:
+        self._signals = Signals(
+            ignition=bool(self.ign_var.get()),
+            rpm=int(self.rpm_var.get()),
+            speed_kmh=float(self.spd_var.get()),
+            fuel_pct=float(self.fuel_var.get()),
+            coolant_c=int(self.clt_var.get()),
+        )
 
     def _ctrl_send(self, obj: dict) -> None:
         if self._ctrl is None:
@@ -564,6 +888,7 @@ class CompanionApp(tk.Tk):
         self._ctrl_send({"cmd": "ign", "on": 1 if self.ign_var.get() else 0})
 
     def _stream_sig_tick(self) -> None:
+        self._publish_signals()
         now = time.monotonic()
         if self._pending_sig and self._ctrl is not None and (now - self._last_sig_sent) >= (1.0 / SEND_HZ):
             self._pending_sig = False
