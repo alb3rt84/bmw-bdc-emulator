@@ -30,7 +30,7 @@ Plik: `pc_companion\dist\BmwBdcCompanion.exe`
 5. CAN **500000** (BMW). Zostaw **Auto USB baud** (sprawdza 115200, potem 2000000 i pozostałe).
 6. **Connect**. Status ma pokazać `Robotell COMx USB … CAN 500000`. Dopiero wtedy USB naprawdę odpowiada.
 7. Suwaki (zapłon, RPM, prędkość, paliwo, temperatura) idą na magistralę jako ramki cykliczne. Licznik **TX** musi rosnąć.
-8. Odbiór widać w tabeli CAN. Własną ramkę wyślesz polami ID + Data.
+8. Własna ramka jest jak w CANhackerze: **ID**, **DLC 0–8**, osobne bajty **D0–D7**. Bajty powyżej DLC są szare i nie wchodzą do ramki. Pod spodem widać dokładnie to, co pójdzie na magistralę (`ID … DLC … dane`). **Wyślij raz** albo **Dodaj na listę** z okresem w ms. Podgląd ma kolumny kierunek, ID, DLC i dane.
 
 Jeśli Connect kończy się komunikatem, że port się otwiera, ale adapter nie odpowiada — to nie jest ten COM albo prędkość USB jest nietypowa. Zostaw Auto USB baud i wybierz port CH340.
 

@@ -31,7 +31,7 @@ except ImportError:  # pragma: no cover
     list_ports = None
 
 from bmw_cyclic import Signals, due
-from robotell_can import RobotellCan
+from robotell_can import CanFrame, RobotellCan
 
 
 APP_TITLE = "BMW BDC/ZGM Bench Companion"
@@ -294,10 +294,13 @@ class CompanionApp(tk.Tk):
         self._cyclic_enabled = True
         self._tx_count = 0
         self._rx_count = 0
-        self._rx_seen: dict[int, int] = {}
+        self._rx_seen: dict[tuple, int] = {}
         self._port_map: dict[str, str] = {}
-        self.geometry("860x820")
-        self.minsize(760, 700)
+        self._tx_jobs: list[dict] = []
+        self._tx_job_lock = threading.Lock()
+        self._tx_seq = 0
+        self.geometry("1000x960")
+        self.minsize(900, 800)
 
         self._build_ui()
         self._refresh_ports()
@@ -414,34 +417,128 @@ class CompanionApp(tk.Tk):
         ttk.Button(btns, text="Drive 50 km/h", command=self._preset_drive).pack(side="left", padx=4)
         ttk.Button(btns, text="Ping", command=self._ping).pack(side="left", padx=4)
 
-        mon = ttk.LabelFrame(self.tab_live, text="Robotell CAN monitor")
+        self._build_can_tx_panel(pad)
+        self._build_can_rx_panel(pad)
+        self._mode_changed()
+        self._on_dlc_changed()
+
+    def _build_can_tx_panel(self, pad: dict) -> None:
+        tx = ttk.LabelFrame(self.tab_live, text="Nadawanie CAN — ID, DLC i bajty D0–D7")
+        tx.pack(fill="x", **pad)
+
+        top = ttk.Frame(tx)
+        top.pack(fill="x", padx=8, pady=(6, 2))
+
+        id_box = ttk.Frame(top)
+        id_box.pack(side="left", padx=(0, 16))
+        ttk.Label(id_box, text="ID (hex)").pack(anchor="w")
+        self.tx_id_var = tk.StringVar(value="12F")
+        ttk.Entry(id_box, textvariable=self.tx_id_var, width=12, font=("Consolas", 12), justify="center").pack()
+
+        dlc_box = ttk.Frame(top)
+        dlc_box.pack(side="left", padx=(0, 16))
+        ttk.Label(dlc_box, text="DLC").pack(anchor="w")
+        self.tx_dlc_var = tk.StringVar(value="8")
+        dlc = ttk.Combobox(
+            dlc_box, textvariable=self.tx_dlc_var, width=4, state="readonly",
+            values=[str(i) for i in range(9)], font=("Consolas", 12),
+        )
+        dlc.pack()
+        dlc.bind("<<ComboboxSelected>>", self._on_dlc_changed)
+
+        self.tx_format = tk.StringVar(value="std")
+        fmt = ttk.LabelFrame(top, text="Format")
+        fmt.pack(side="left", padx=8)
+        ttk.Radiobutton(fmt, text="Standard 11 bit", variable=self.tx_format, value="std",
+                        command=self._on_dlc_changed).pack(anchor="w", padx=6)
+        ttk.Radiobutton(fmt, text="Rozszerzony 29 bit", variable=self.tx_format, value="ext",
+                        command=self._on_dlc_changed).pack(anchor="w", padx=6)
+
+        self.tx_kind = tk.StringVar(value="data")
+        kind = ttk.LabelFrame(top, text="Rodzaj")
+        kind.pack(side="left", padx=8)
+        ttk.Radiobutton(kind, text="Dane", variable=self.tx_kind, value="data",
+                        command=self._on_dlc_changed).pack(anchor="w", padx=6)
+        ttk.Radiobutton(kind, text="Zdalna (RTR)", variable=self.tx_kind, value="remote",
+                        command=self._on_dlc_changed).pack(anchor="w", padx=6)
+
+        byte_row = ttk.Frame(tx)
+        byte_row.pack(fill="x", padx=8, pady=6)
+        self.tx_byte_vars: list[tk.StringVar] = []
+        self.tx_byte_entries: list[ttk.Entry] = []
+        defaults = ["45", "FF", "45", "FF", "FF", "FF", "FF", "FF"]
+        for i in range(8):
+            cell = ttk.Frame(byte_row)
+            cell.pack(side="left", padx=4)
+            ttk.Label(cell, text=f"D{i}").pack()
+            var = tk.StringVar(value=defaults[i])
+            ent = ttk.Entry(cell, textvariable=var, width=4, justify="center", font=("Consolas", 13))
+            ent.pack()
+            self.tx_byte_vars.append(var)
+            self.tx_byte_entries.append(ent)
+
+        bar = ttk.Frame(tx)
+        bar.pack(fill="x", padx=8, pady=4)
+        ttk.Label(bar, text="Okres").pack(side="left")
+        self.tx_period_var = tk.StringVar(value="100")
+        ttk.Entry(bar, textvariable=self.tx_period_var, width=7, justify="center").pack(side="left", padx=4)
+        ttk.Label(bar, text="ms").pack(side="left", padx=(0, 10))
+        ttk.Button(bar, text="Wyślij raz", command=self._manual_can_send).pack(side="left", padx=3)
+        ttk.Button(bar, text="Dodaj na listę", command=self._add_tx_job).pack(side="left", padx=3)
+
+        self.tx_preview = tk.StringVar(value="")
+        ttk.Label(tx, textvariable=self.tx_preview, font=("Consolas", 10)).pack(anchor="w", padx=8, pady=(0, 4))
+
+        cols = ("on", "id", "dlc", "data", "period", "fmt")
+        self.tx_tree = ttk.Treeview(tx, columns=cols, show="headings", height=4)
+        headings = (
+            ("on", "Nadawaj", 70),
+            ("id", "ID", 90),
+            ("dlc", "DLC", 50),
+            ("data", "Dane — dokładnie DLC bajtów", 320),
+            ("period", "Okres", 80),
+            ("fmt", "Format", 150),
+        )
+        for key, title, width in headings:
+            self.tx_tree.heading(key, text=title)
+            self.tx_tree.column(key, width=width, stretch=(key == "data"))
+        self.tx_tree.pack(fill="x", padx=8, pady=4)
+        self.tx_tree.bind("<Double-1>", self._load_tx_job)
+
+        jbtn = ttk.Frame(tx)
+        jbtn.pack(fill="x", padx=8, pady=(0, 6))
+        ttk.Button(jbtn, text="Włącz / wyłącz", command=self._toggle_tx_job).pack(side="left", padx=3)
+        ttk.Button(jbtn, text="Usuń z listy", command=self._delete_tx_job).pack(side="left", padx=3)
+        ttk.Label(
+            jbtn,
+            text="Podwójne kliknięcie wiersza wstawia go z powrotem do pól.",
+        ).pack(side="left", padx=8)
+
+        self.tx_id_var.trace_add("write", self._on_dlc_changed)
+        self.tx_period_var.trace_add("write", self._on_dlc_changed)
+        for var in self.tx_byte_vars:
+            var.trace_add("write", self._on_dlc_changed)
+
+    def _build_can_rx_panel(self, pad: dict) -> None:
+        mon = ttk.LabelFrame(self.tab_live, text="Podgląd magistrali")
         mon.pack(fill="both", expand=True, **pad)
         self.can_counter = tk.StringVar(value="TX 0    RX 0")
-        ttk.Label(mon, textvariable=self.can_counter).pack(anchor="w", padx=8, pady=2)
-        cols = ("id", "dlc", "data", "count")
-        self.can_tree = ttk.Treeview(mon, columns=cols, show="headings", height=6)
-        self.can_tree.heading("id", text="ID")
-        self.can_tree.heading("dlc", text="DLC")
-        self.can_tree.heading("data", text="Data")
-        self.can_tree.heading("count", text="Count")
-        self.can_tree.column("id", width=90, stretch=False)
-        self.can_tree.column("dlc", width=50, stretch=False)
-        self.can_tree.column("data", width=280, stretch=True)
-        self.can_tree.column("count", width=70, stretch=False)
+        head = ttk.Frame(mon)
+        head.pack(fill="x", padx=8, pady=2)
+        ttk.Label(head, textvariable=self.can_counter).pack(side="left")
+        ttk.Button(head, text="Wyczyść podgląd", command=self._clear_can_monitor).pack(side="right")
+        cols = ("dir", "id", "dlc", "data", "count")
+        self.can_tree = ttk.Treeview(mon, columns=cols, show="headings", height=7)
+        for key, title, width, stretch in (
+            ("dir", "Kier.", 60, False),
+            ("id", "ID", 110, False),
+            ("dlc", "DLC", 50, False),
+            ("data", "Dane", 360, True),
+            ("count", "Ile", 70, False),
+        ):
+            self.can_tree.heading(key, text=title)
+            self.can_tree.column(key, width=width, stretch=stretch)
         self.can_tree.pack(fill="both", expand=True, padx=8, pady=4)
-
-        raw = ttk.Frame(mon)
-        raw.pack(fill="x", padx=8, pady=4)
-        ttk.Label(raw, text="ID hex").pack(side="left")
-        self.tx_id_var = tk.StringVar(value="12F")
-        ttk.Entry(raw, textvariable=self.tx_id_var, width=10).pack(side="left", padx=4)
-        ttk.Label(raw, text="Data").pack(side="left")
-        self.tx_data_var = tk.StringVar(value="45 FF 45 FF FF FF FF FF")
-        ttk.Entry(raw, textvariable=self.tx_data_var, width=36).pack(side="left", padx=4, fill="x", expand=True)
-        ttk.Button(raw, text="Send CAN", command=self._manual_can_send).pack(side="left", padx=4)
-        ttk.Button(raw, text="Clear", command=self._clear_can_monitor).pack(side="left", padx=4)
-
-        self._mode_changed()
 
     def _add_slider(self, parent, title, var, amin, amax, fmt):
         frame = ttk.Frame(parent)
@@ -763,6 +860,31 @@ class CompanionApp(tk.Tk):
                         self._rx_q.put(("lost", str(exc)))
                         self._can_stop.set()
                         break
+            if self._can_stop.is_set():
+                break
+            due_jobs: list[dict] = []
+            with self._tx_job_lock:
+                now = time.monotonic()
+                for job in self._tx_jobs:
+                    if not job["enabled"] or job["period_s"] <= 0:
+                        continue
+                    if (now - job["last"]) >= job["period_s"]:
+                        job["last"] = now
+                        due_jobs.append(job)
+            for job in due_jobs:
+                if self._can_stop.is_set():
+                    break
+                try:
+                    can.send(
+                        job["can_id"], job["data"],
+                        extended=job["extended"], remote=job["remote"], dlc=job["dlc"],
+                    )
+                    self._tx_count += 1
+                    self._rx_q.put(("can", self._frame_from_job(job), "TX"))
+                except Exception as exc:
+                    self._rx_q.put(("lost", str(exc)))
+                    self._can_stop.set()
+                    break
             try:
                 while not self._can_stop.is_set():
                     frame = can.recv(0)
@@ -794,7 +916,8 @@ class CompanionApp(tk.Tk):
                 if isinstance(item, tuple) and item:
                     kind = item[0]
                     if kind == "can":
-                        self._note_can_frame(item[1])
+                        direction = item[2] if len(item) > 2 else "RX"
+                        self._note_can_frame(item[1], direction)
                     elif kind == "status":
                         self.ctrl_status.set(item[1])
                     elif kind == "connected":
@@ -814,18 +937,24 @@ class CompanionApp(tk.Tk):
         self._update_can_counters()
         self.after(50, self._poll_rx)
 
-    def _note_can_frame(self, frame) -> None:
+    def _note_can_frame(self, frame, direction: str = "RX") -> None:
         can_id = frame.arbitration_id
-        count = self._rx_seen.get(can_id, 0) + 1
-        self._rx_seen[can_id] = count
-        data = hex_bytes(frame.data) if frame.data else ("REMOTE" if frame.is_remote else "")
-        suffix = " X" if frame.is_extended else ""
-        iid = f"{can_id:X}{suffix}"
-        values = (f"0x{can_id:X}{suffix}", frame.dlc, data, count)
+        extended = bool(frame.is_extended)
+        key = (direction, can_id, extended)
+        count = self._rx_seen.get(key, 0) + 1
+        self._rx_seen[key] = count
+        if frame.is_remote:
+            data = "RTR"
+        else:
+            data = hex_bytes(frame.data)
+        suffix = " EXT" if extended else " STD"
+        iid = f"{direction}:{can_id:X}:{suffix}"
+        values = (direction, f"0x{can_id:X}{suffix}", frame.dlc, data, count)
         if self.can_tree.exists(iid):
             self.can_tree.item(iid, values=values)
         else:
             self.can_tree.insert("", "end", iid=iid, values=values)
+            self.can_tree.see(iid)
 
     def _update_can_counters(self) -> None:
         self.can_counter.set(f"TX {self._tx_count}    RX {self._rx_count}")
@@ -837,25 +966,175 @@ class CompanionApp(tk.Tk):
         self._rx_seen.clear()
         self._rx_count = 0
 
+    def _on_dlc_changed(self, *_args) -> None:
+        try:
+            dlc = int(self.tx_dlc_var.get())
+        except ValueError:
+            dlc = 0
+        dlc = max(0, min(8, dlc))
+        remote = self.tx_kind.get() == "remote"
+        for i, entry in enumerate(self.tx_byte_entries):
+            entry.configure(state="disabled" if remote or i >= dlc else "normal")
+        self._refresh_tx_preview()
+
+    def _refresh_tx_preview(self) -> None:
+        try:
+            can_id, data, dlc, extended, remote = self._parse_tx_frame()
+        except ValueError as exc:
+            self.tx_preview.set(f"Ramka:  {exc}")
+            return
+        fmt = "EXT" if extended else "STD"
+        kind = "RTR" if remote else hex_bytes(data)
+        self.tx_preview.set(f"Ramka:  ID 0x{can_id:X}   {fmt}   DLC {dlc}   {kind}")
+
+    def _parse_tx_frame(self) -> tuple[int, bytes, int, bool, bool]:
+        raw_id = self.tx_id_var.get().strip().lower().replace("0x", "")
+        if not raw_id:
+            raise ValueError("wpisz ID, np. 12F")
+        can_id = int(raw_id, 16)
+        dlc = int(self.tx_dlc_var.get())
+        if not 0 <= dlc <= 8:
+            raise ValueError("DLC musi być 0–8")
+        extended = self.tx_format.get() == "ext"
+        if not extended and can_id > 0x7FF:
+            raise ValueError("ID standard max 7FF — wybierz rozszerzony albo mniejsze ID")
+        if can_id < 0 or can_id > 0x1FFFFFFF:
+            raise ValueError("ID poza zakresem")
+        remote = self.tx_kind.get() == "remote"
+        data = bytearray()
+        if not remote:
+            for i in range(dlc):
+                text = self.tx_byte_vars[i].get().strip()
+                if not text:
+                    text = "00"
+                if len(text) > 2:
+                    raise ValueError(f"D{i} to jeden bajt, np. A5")
+                value = int(text, 16)
+                if not 0 <= value <= 0xFF:
+                    raise ValueError(f"D{i} poza 00–FF")
+                data.append(value)
+        return can_id, bytes(data), dlc, extended, remote
+
+    def _frame_from_job(self, job: dict) -> CanFrame:
+        return CanFrame(
+            job["can_id"], job["data"], job["extended"], job["remote"], job["dlc"],
+        )
+
+    def _job_row(self, job: dict) -> tuple[str, str, str, str, str, str]:
+        if job["remote"]:
+            data = "RTR"
+        else:
+            data = hex_bytes(job["data"]) if job["data"] else "(puste)"
+        if job["period_s"] <= 0:
+            period = "—"
+        else:
+            period = f"{job['period_s'] * 1000:.0f} ms"
+        fmt = "EXT" if job["extended"] else "STD"
+        if job["remote"]:
+            fmt += " RTR"
+        return ("TAK" if job["enabled"] else "nie", f"0x{job['can_id']:X}", str(job["dlc"]), data, period, fmt)
+
     def _manual_can_send(self) -> None:
         if self._robotell is None:
             messagebox.showinfo(APP_TITLE, "Najpierw połącz adapter Robotell (tryb Robotell USB-CAN).")
             return
         try:
-            can_id = int(self.tx_id_var.get().strip(), 16)
-            data = parse_hex_bytes(self.tx_data_var.get())
-        except ValueError:
-            messagebox.showerror(APP_TITLE, "Zły zapis hex (ID albo dane).")
-            return
-        if not 0 <= can_id <= 0x1FFFFFFF or len(data) > 8:
-            messagebox.showerror(APP_TITLE, "ID poza zakresem albo więcej niż 8 bajtów danych.")
+            can_id, data, dlc, extended, remote = self._parse_tx_frame()
+        except ValueError as exc:
+            messagebox.showerror(APP_TITLE, str(exc))
             return
         try:
-            self._robotell.send(can_id, data, extended=can_id > 0x7FF)
-            self._tx_count += 1
-            self._append_log(f"CAN TX 0x{can_id:X} {hex_bytes(data)}")
+            self._robotell.send(can_id, data, extended=extended, remote=remote, dlc=dlc)
         except Exception as exc:
             messagebox.showerror(APP_TITLE, str(exc))
+            return
+        self._tx_count += 1
+        frame = CanFrame(can_id, data, extended, remote, dlc)
+        self._note_can_frame(frame, "TX")
+        kind = "RTR" if remote else hex_bytes(data)
+        fmt = "EXT" if extended else "STD"
+        self._append_log(f"TX  ID 0x{can_id:X}  {fmt}  DLC {dlc}  {kind}")
+
+    def _read_period_s(self) -> float:
+        text = self.tx_period_var.get().strip().replace(",", ".")
+        if not text:
+            return 0.0
+        period_ms = float(text)
+        if period_ms < 0:
+            raise ValueError("Okres nie może być ujemny")
+        return period_ms / 1000.0
+
+    def _add_tx_job(self) -> None:
+        try:
+            can_id, data, dlc, extended, remote = self._parse_tx_frame()
+            period_s = self._read_period_s()
+        except ValueError as exc:
+            messagebox.showerror(APP_TITLE, str(exc))
+            return
+        self._tx_seq += 1
+        job = {
+            "iid": str(self._tx_seq),
+            "can_id": can_id,
+            "dlc": dlc,
+            "data": data,
+            "extended": extended,
+            "remote": remote,
+            "period_s": period_s,
+            "enabled": period_s > 0,
+            "last": 0.0,
+        }
+        with self._tx_job_lock:
+            self._tx_jobs.append(job)
+        self.tx_tree.insert("", "end", iid=job["iid"], values=self._job_row(job))
+        self.tx_tree.see(job["iid"])
+
+    def _selected_job(self) -> dict | None:
+        sel = self.tx_tree.selection()
+        if not sel:
+            return None
+        iid = sel[0]
+        with self._tx_job_lock:
+            for job in self._tx_jobs:
+                if job["iid"] == iid:
+                    return job
+        return None
+
+    def _toggle_tx_job(self) -> None:
+        job = self._selected_job()
+        if job is None:
+            messagebox.showinfo(APP_TITLE, "Zaznacz wiersz na liście nadawania.")
+            return
+        if job["period_s"] <= 0 and not job["enabled"]:
+            messagebox.showinfo(APP_TITLE, "Ten wiersz ma okres 0 ms — ustaw okres i dodaj ramkę jeszcze raz.")
+            return
+        job["enabled"] = not job["enabled"]
+        job["last"] = 0.0
+        self.tx_tree.item(job["iid"], values=self._job_row(job))
+
+    def _delete_tx_job(self) -> None:
+        job = self._selected_job()
+        if job is None:
+            return
+        with self._tx_job_lock:
+            self._tx_jobs = [item for item in self._tx_jobs if item["iid"] != job["iid"]]
+        self.tx_tree.delete(job["iid"])
+
+    def _load_tx_job(self, _event=None) -> None:
+        job = self._selected_job()
+        if job is None:
+            return
+        self.tx_id_var.set(f"{job['can_id']:X}")
+        self.tx_dlc_var.set(str(job["dlc"]))
+        self.tx_format.set("ext" if job["extended"] else "std")
+        self.tx_kind.set("remote" if job["remote"] else "data")
+        for i in range(8):
+            if i < len(job["data"]):
+                self.tx_byte_vars[i].set(f"{job['data'][i]:02X}")
+        if job["period_s"] > 0:
+            self.tx_period_var.set(f"{job['period_s'] * 1000:.0f}")
+        else:
+            self.tx_period_var.set("0")
+        self._on_dlc_changed()
 
     def _ping(self) -> None:
         if self._robotell is not None:

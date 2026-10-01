@@ -65,6 +65,29 @@ class FramingTests(unittest.TestCase):
         buf.extend(packet[8:])
         self.assertEqual(pop_frames(buf), [body])
 
+    def test_explicit_dlc_truncates_and_pads(self) -> None:
+        body = encode_body(0x12F, bytes([0x45, 0xFF, 0x11, 0x22]), dlc=2)
+        self.assertEqual(body[12], 2)
+        self.assertEqual(body[4:6], bytes([0x45, 0xFF]))
+        self.assertEqual(body[6:12], bytes(6))
+        frame = frame_from_body(body)
+        self.assertEqual(frame.dlc, 2)
+        self.assertEqual(frame.data, bytes([0x45, 0xFF]))
+
+        padded = encode_body(0x12F, bytes([0x45, 0xFF]), dlc=4)
+        self.assertEqual(padded[12], 4)
+        self.assertEqual(padded[4:8], bytes([0x45, 0xFF, 0x00, 0x00]))
+
+    def test_remote_frame_keeps_dlc(self) -> None:
+        body = encode_body(0x100, b"", remote=True, dlc=4)
+        self.assertEqual(body[12], 4)
+        self.assertEqual(body[15], 1)
+        self.assertEqual(body[4:12], bytes(8))
+        frame = frame_from_body(body)
+        self.assertTrue(frame.is_remote)
+        self.assertEqual(frame.dlc, 4)
+        self.assertEqual(frame.data, b"")
+
     def test_bad_checksum_dropped(self) -> None:
         body = bytearray(encode_body(0x1, b"\x02"))
         body[16] ^= 0xFF
