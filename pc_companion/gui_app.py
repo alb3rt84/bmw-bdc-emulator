@@ -30,7 +30,7 @@ except ImportError:  # pragma: no cover
     serial = None
     list_ports = None
 
-from bmw_cyclic import Signals, due
+from bmw_cyclic import Signals, due, encode_ignition
 from robotell_can import CanFrame, RobotellCan
 
 
@@ -299,10 +299,15 @@ class CompanionApp(tk.Tk):
         self._tx_jobs: list[dict] = []
         self._tx_job_lock = threading.Lock()
         self._tx_seq = 0
-        self.geometry("1000x960")
-        self.minsize(900, 800)
-
+        self.minsize(960, 500)
         self._build_ui()
+        self.update_idletasks()
+        screen_h = self.winfo_screenheight()
+        screen_w = self.winfo_screenwidth()
+        height = min(620, max(520, screen_h - 96))
+        width = min(1180, max(1000, screen_w - 48))
+        self.geometry(f"{width}x{height}")
+
         self._refresh_ports()
         self.after(50, self._poll_rx)
         self.after(50, self._stream_sig_tick)
@@ -310,8 +315,8 @@ class CompanionApp(tk.Tk):
 
     def _build_ui(self) -> None:
         top = ttk.Frame(self)
-        top.pack(fill="x", padx=10, pady=8)
-        ttk.Label(top, text=APP_TITLE, font=("Segoe UI", 12, "bold")).pack(side="left")
+        top.pack(fill="x", padx=8, pady=2)
+        ttk.Label(top, text=APP_TITLE, font=("Segoe UI", 10, "bold")).pack(side="left")
         self.global_status = tk.StringVar(value="Ready")
         ttk.Label(top, textvariable=self.global_status).pack(side="right")
 
@@ -331,218 +336,243 @@ class CompanionApp(tk.Tk):
 
     # ----------------------------- Live Control -----------------------------
     def _build_live_tab(self) -> None:
-        pad = {"padx": 10, "pady": 6}
-        conn = ttk.LabelFrame(self.tab_live, text="Link: ESP32 JSON  or  Robotell USB-CAN")
-        conn.pack(fill="x", **pad)
+        panes = ttk.Panedwindow(self.tab_live, orient="horizontal")
+        panes.pack(fill="both", expand=True, padx=4, pady=2)
+        left = ttk.Frame(panes)
+        right = ttk.Frame(panes)
+        panes.add(left, weight=1)
+        panes.add(right, weight=1)
+
+        self._build_link_panel(left)
+        self._build_wake_panel(left)
+        self._build_signal_panel(left)
+        self._build_can_tx_panel(right)
+        self._build_can_rx_panel(right)
+        self._install_wake_jobs()
+        self._mode_changed()
+        self._on_dlc_changed()
+
+    def _build_link_panel(self, parent: ttk.Frame) -> None:
+        conn = ttk.LabelFrame(parent, text="Połączenie")
+        conn.pack(fill="x", padx=4, pady=2)
 
         self.mode = tk.StringVar(value="robotell")
-        ttk.Radiobutton(conn, text="Robotell USB-CAN", variable=self.mode, value="robotell",
-                        command=self._mode_changed).grid(row=0, column=0, sticky="w", padx=8, pady=4)
-        ttk.Radiobutton(conn, text="Serial COM (ESP32)", variable=self.mode, value="serial",
-                        command=self._mode_changed).grid(row=0, column=1, sticky="w", padx=8, pady=4)
-        ttk.Radiobutton(conn, text="UDP :13401", variable=self.mode, value="udp",
-                        command=self._mode_changed).grid(row=0, column=2, sticky="w", padx=8, pady=4)
+        ttk.Radiobutton(conn, text="Robotell", variable=self.mode, value="robotell",
+                        command=self._mode_changed).grid(row=0, column=0, sticky="w", padx=6, pady=2)
+        ttk.Radiobutton(conn, text="ESP32 COM", variable=self.mode, value="serial",
+                        command=self._mode_changed).grid(row=0, column=1, sticky="w", padx=6, pady=2)
+        ttk.Radiobutton(conn, text="UDP", variable=self.mode, value="udp",
+                        command=self._mode_changed).grid(row=0, column=2, sticky="w", padx=6, pady=2)
 
-        ttk.Label(conn, text="COM").grid(row=1, column=0, sticky="w", padx=8)
+        ttk.Label(conn, text="COM").grid(row=1, column=0, sticky="w", padx=6)
         self.port_var = tk.StringVar()
-        self.port_combo = ttk.Combobox(conn, textvariable=self.port_var, width=42, state="readonly")
+        self.port_combo = ttk.Combobox(conn, textvariable=self.port_var, width=28, state="readonly")
         self.port_combo.grid(row=1, column=1, sticky="we", padx=4)
-        ttk.Button(conn, text="Refresh", command=self._refresh_ports).grid(row=1, column=2, padx=4)
+        ttk.Button(conn, text="Odśwież", command=self._refresh_ports).grid(row=1, column=2, padx=4)
 
-        ttk.Label(conn, text="ESP32 IP").grid(row=2, column=0, sticky="w", padx=8)
+        ttk.Label(conn, text="IP").grid(row=2, column=0, sticky="w", padx=6)
         self.ip_var = tk.StringVar(value="192.168.0.10")
-        self.ip_entry = ttk.Entry(conn, textvariable=self.ip_var, width=18)
-        self.ip_entry.grid(row=2, column=1, sticky="we", padx=4)
-
-        self.conn_btn = ttk.Button(conn, text="Connect", command=self._toggle_ctrl)
-        self.conn_btn.grid(row=3, column=0, columnspan=2, sticky="we", padx=8, pady=8)
-        self.ctrl_status = tk.StringVar(value="Rozłączony")
-        ttk.Label(conn, textvariable=self.ctrl_status).grid(row=3, column=2, sticky="w")
+        self.ip_entry = ttk.Entry(conn, textvariable=self.ip_var, width=16)
+        self.ip_entry.grid(row=2, column=1, sticky="w", padx=4)
 
         self.robotell_row = ttk.Frame(conn)
-        self.robotell_row.grid(row=4, column=0, columnspan=3, sticky="we", padx=4, pady=2)
-        ttk.Label(self.robotell_row, text="USB baud").pack(side="left", padx=4)
+        self.robotell_row.grid(row=3, column=0, columnspan=3, sticky="we", padx=4, pady=2)
+        ttk.Label(self.robotell_row, text="USB").pack(side="left")
         self.usb_baud_var = tk.StringVar(value="115200")
         ttk.Combobox(
-            self.robotell_row, textvariable=self.usb_baud_var, width=10,
+            self.robotell_row, textvariable=self.usb_baud_var, width=9,
             values=("115200", "2000000", "1000000", "921600", "460800", "230400", "57600", "38400", "19200", "9600"),
         ).pack(side="left", padx=4)
-        ttk.Label(self.robotell_row, text="CAN bit/s").pack(side="left", padx=8)
+        ttk.Label(self.robotell_row, text="CAN").pack(side="left", padx=(6, 0))
         self.can_bitrate_var = tk.StringVar(value="500000")
         ttk.Combobox(
-            self.robotell_row, textvariable=self.can_bitrate_var, width=10,
+            self.robotell_row, textvariable=self.can_bitrate_var, width=9,
             values=("500000", "250000", "125000", "100000", "1000000"),
         ).pack(side="left", padx=4)
         self.auto_baud_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(self.robotell_row, text="Auto USB baud", variable=self.auto_baud_var).pack(side="left", padx=8)
-        self.cyclic_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            self.robotell_row, text="Nadawaj ramki BDC", variable=self.cyclic_var,
-            command=self._on_cyclic_toggle,
-        ).pack(side="left", padx=4)
+        ttk.Checkbutton(self.robotell_row, text="Auto baud", variable=self.auto_baud_var).pack(side="left", padx=4)
 
-        self.robotell_hint = ttk.Label(
-            conn,
-            text=(
-                "Adapter Robotell (CH340). Auto USB baud sprawdza 115200 i 2000000. "
-                "CAN BMW = 500000. Port zajęty = zamknij EmbededDebug. Brak COM = sterownik CH340. "
-                "Odznacz „Nadawaj ramki BDC”, jeśli chcesz tylko podsłuchiwać magistralę."
-            ),
-            wraplength=780,
-        )
-        self.robotell_hint.grid(row=5, column=0, columnspan=3, sticky="w", padx=8, pady=4)
+        self.conn_btn = ttk.Button(conn, text="Connect", command=self._toggle_ctrl)
+        self.conn_btn.grid(row=4, column=0, columnspan=2, sticky="we", padx=6, pady=4)
+        self.ctrl_status = tk.StringVar(value="Rozłączony")
+        ttk.Label(conn, textvariable=self.ctrl_status).grid(row=4, column=2, sticky="w")
         conn.columnconfigure(1, weight=1)
 
-        dash = ttk.LabelFrame(self.tab_live, text="Bench signals → cyclic CAN")
-        dash.pack(fill="x", **pad)
+    def _build_wake_panel(self, parent: ttk.Frame) -> None:
+        box = ttk.LabelFrame(parent, text="Wybudzenie BMW")
+        box.pack(fill="both", expand=True, padx=4, pady=2)
+        bar = ttk.Frame(box)
+        bar.pack(fill="x", padx=4, pady=2)
+        self.cyclic_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            bar, text="Automaty", variable=self.cyclic_var, command=self._on_cyclic_toggle,
+        ).pack(side="left")
+        ttk.Button(bar, text="Włącz / wyłącz", command=self._toggle_tx_job).pack(side="left", padx=4)
+        ttk.Button(bar, text="Usuń", command=self._delete_tx_job).pack(side="left")
 
+        cols = ("on", "id", "dlc", "data", "period")
+        self.wake_tree = ttk.Treeview(box, columns=cols, show="headings", height=4)
+        for key, title, width, stretch in (
+            ("on", "", 36, False),
+            ("id", "ID", 70, False),
+            ("dlc", "DLC", 40, False),
+            ("data", "Dane", 180, True),
+            ("period", "Period", 70, False),
+        ):
+            self.wake_tree.heading(key, text=title)
+            self.wake_tree.column(key, width=width, stretch=stretch, anchor="center")
+        self.wake_tree.column("data", anchor="w")
+        self.wake_tree.pack(fill="both", expand=True, padx=4, pady=2)
+        self.wake_tree.bind("<Double-1>", self._load_tx_job)
+        self.wake_tree.bind("<<TreeviewSelect>>", lambda _e: self._remember_tree(self.wake_tree))
+
+    def _build_signal_panel(self, parent: ttk.Frame) -> None:
+        dash = ttk.LabelFrame(parent, text="Sygnały")
+        dash.pack(fill="x", padx=4, pady=2)
         self.ign_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(
-            dash, text="Terminal 15 (Ignition) ON", variable=self.ign_var,
-            command=self._on_ignition,
-        ).pack(anchor="w", padx=12, pady=8)
-
+            dash, text="KL15", variable=self.ign_var, command=self._on_ignition,
+        ).pack(anchor="w", padx=8, pady=1)
         self.rpm_var = tk.DoubleVar(value=0)
         self.spd_var = tk.DoubleVar(value=0)
         self.fuel_var = tk.DoubleVar(value=50)
         self.clt_var = tk.DoubleVar(value=90)
-        self._add_slider(dash, "Engine RPM", self.rpm_var, 0, 8000, "{:.0f} rpm")
-        self._add_slider(dash, "Vehicle Speed", self.spd_var, 0, 300, "{:.0f} km/h")
-        self._add_slider(dash, "Fuel Level", self.fuel_var, 0, 100, "{:.0f} %")
-        self._add_slider(dash, "Coolant Temp", self.clt_var, -40, 140, "{:.0f} °C")
-
+        self._add_slider(dash, "RPM", self.rpm_var, 0, 8000, "{:.0f}")
+        self._add_slider(dash, "km/h", self.spd_var, 0, 300, "{:.0f}")
+        self._add_slider(dash, "Paliwo", self.fuel_var, 0, 100, "{:.0f}%")
+        self._add_slider(dash, "Temp", self.clt_var, -40, 140, "{:.0f}°")
         btns = ttk.Frame(dash)
-        btns.pack(fill="x", padx=12, pady=8)
-        ttk.Button(btns, text="Idle preset", command=self._preset_idle).pack(side="left", padx=4)
-        ttk.Button(btns, text="Drive 50 km/h", command=self._preset_drive).pack(side="left", padx=4)
-        ttk.Button(btns, text="Ping", command=self._ping).pack(side="left", padx=4)
+        btns.pack(fill="x", padx=8, pady=2)
+        ttk.Button(btns, text="Idle", command=self._preset_idle).pack(side="left", padx=2)
+        ttk.Button(btns, text="50 km/h", command=self._preset_drive).pack(side="left", padx=2)
 
-        self._build_can_tx_panel(pad)
-        self._build_can_rx_panel(pad)
-        self._mode_changed()
-        self._on_dlc_changed()
-
-    def _build_can_tx_panel(self, pad: dict) -> None:
-        tx = ttk.LabelFrame(self.tab_live, text="Nadawanie CAN — ID, DLC i bajty D0–D7")
-        tx.pack(fill="x", **pad)
+    def _build_can_tx_panel(self, parent: ttk.Frame) -> None:
+        tx = ttk.LabelFrame(parent, text="Nadawanie")
+        tx.pack(fill="both", expand=True, padx=4, pady=2)
 
         top = ttk.Frame(tx)
-        top.pack(fill="x", padx=8, pady=(6, 2))
-
-        id_box = ttk.Frame(top)
-        id_box.pack(side="left", padx=(0, 16))
-        ttk.Label(id_box, text="ID (hex)").pack(anchor="w")
-        self.tx_id_var = tk.StringVar(value="12F")
-        ttk.Entry(id_box, textvariable=self.tx_id_var, width=12, font=("Consolas", 12), justify="center").pack()
-
-        dlc_box = ttk.Frame(top)
-        dlc_box.pack(side="left", padx=(0, 16))
-        ttk.Label(dlc_box, text="DLC").pack(anchor="w")
+        top.pack(fill="x", padx=4, pady=2)
+        ttk.Label(top, text="ID").pack(side="left")
+        self.tx_id_var = tk.StringVar(value="123")
+        ttk.Entry(top, textvariable=self.tx_id_var, width=8, font=("Consolas", 11), justify="center").pack(side="left", padx=3)
+        ttk.Label(top, text="DLC").pack(side="left", padx=(6, 0))
         self.tx_dlc_var = tk.StringVar(value="8")
         dlc = ttk.Combobox(
-            dlc_box, textvariable=self.tx_dlc_var, width=4, state="readonly",
-            values=[str(i) for i in range(9)], font=("Consolas", 12),
+            top, textvariable=self.tx_dlc_var, width=3, state="readonly",
+            values=[str(i) for i in range(9)],
         )
-        dlc.pack()
+        dlc.pack(side="left", padx=3)
         dlc.bind("<<ComboboxSelected>>", self._on_dlc_changed)
 
         self.tx_format = tk.StringVar(value="std")
-        fmt = ttk.LabelFrame(top, text="Format")
-        fmt.pack(side="left", padx=8)
-        ttk.Radiobutton(fmt, text="Standard 11 bit", variable=self.tx_format, value="std",
-                        command=self._on_dlc_changed).pack(anchor="w", padx=6)
-        ttk.Radiobutton(fmt, text="Rozszerzony 29 bit", variable=self.tx_format, value="ext",
-                        command=self._on_dlc_changed).pack(anchor="w", padx=6)
-
+        ttk.Radiobutton(top, text="STD", variable=self.tx_format, value="std",
+                        command=self._on_dlc_changed).pack(side="left", padx=2)
+        ttk.Radiobutton(top, text="EXT", variable=self.tx_format, value="ext",
+                        command=self._on_dlc_changed).pack(side="left", padx=2)
         self.tx_kind = tk.StringVar(value="data")
-        kind = ttk.LabelFrame(top, text="Rodzaj")
-        kind.pack(side="left", padx=8)
-        ttk.Radiobutton(kind, text="Dane", variable=self.tx_kind, value="data",
-                        command=self._on_dlc_changed).pack(anchor="w", padx=6)
-        ttk.Radiobutton(kind, text="Zdalna (RTR)", variable=self.tx_kind, value="remote",
-                        command=self._on_dlc_changed).pack(anchor="w", padx=6)
+        ttk.Radiobutton(top, text="DATA", variable=self.tx_kind, value="data",
+                        command=self._on_dlc_changed).pack(side="left", padx=2)
+        ttk.Radiobutton(top, text="RTR", variable=self.tx_kind, value="remote",
+                        command=self._on_dlc_changed).pack(side="left", padx=2)
+
+        ttk.Label(top, text="Period").pack(side="left", padx=(8, 0))
+        self.tx_period_var = tk.StringVar(value="100")
+        ttk.Entry(top, textvariable=self.tx_period_var, width=6, font=("Consolas", 11), justify="center").pack(side="left", padx=3)
+        ttk.Label(top, text="ms").pack(side="left")
 
         byte_row = ttk.Frame(tx)
-        byte_row.pack(fill="x", padx=8, pady=6)
+        byte_row.pack(fill="x", padx=4, pady=2)
         self.tx_byte_vars: list[tk.StringVar] = []
         self.tx_byte_entries: list[ttk.Entry] = []
-        defaults = ["45", "FF", "45", "FF", "FF", "FF", "FF", "FF"]
         for i in range(8):
             cell = ttk.Frame(byte_row)
-            cell.pack(side="left", padx=4)
+            cell.pack(side="left", padx=2)
             ttk.Label(cell, text=f"D{i}").pack()
-            var = tk.StringVar(value=defaults[i])
-            ent = ttk.Entry(cell, textvariable=var, width=4, justify="center", font=("Consolas", 13))
+            var = tk.StringVar(value="00")
+            ent = ttk.Entry(cell, textvariable=var, width=4, justify="center", font=("Consolas", 11))
             ent.pack()
             self.tx_byte_vars.append(var)
             self.tx_byte_entries.append(ent)
-
-        bar = ttk.Frame(tx)
-        bar.pack(fill="x", padx=8, pady=4)
-        ttk.Label(bar, text="Okres").pack(side="left")
-        self.tx_period_var = tk.StringVar(value="100")
-        ttk.Entry(bar, textvariable=self.tx_period_var, width=7, justify="center").pack(side="left", padx=4)
-        ttk.Label(bar, text="ms").pack(side="left", padx=(0, 10))
-        ttk.Button(bar, text="Wyślij raz", command=self._manual_can_send).pack(side="left", padx=3)
-        ttk.Button(bar, text="Dodaj na listę", command=self._add_tx_job).pack(side="left", padx=3)
-
-        self.tx_preview = tk.StringVar(value="")
-        ttk.Label(tx, textvariable=self.tx_preview, font=("Consolas", 10)).pack(anchor="w", padx=8, pady=(0, 4))
-
-        cols = ("on", "id", "dlc", "data", "period", "fmt")
-        self.tx_tree = ttk.Treeview(tx, columns=cols, show="headings", height=4)
-        headings = (
-            ("on", "Nadawaj", 70),
-            ("id", "ID", 90),
-            ("dlc", "DLC", 50),
-            ("data", "Dane — dokładnie DLC bajtów", 320),
-            ("period", "Okres", 80),
-            ("fmt", "Format", 150),
-        )
-        for key, title, width in headings:
-            self.tx_tree.heading(key, text=title)
-            self.tx_tree.column(key, width=width, stretch=(key == "data"))
-        self.tx_tree.pack(fill="x", padx=8, pady=4)
-        self.tx_tree.bind("<Double-1>", self._load_tx_job)
-
-        jbtn = ttk.Frame(tx)
-        jbtn.pack(fill="x", padx=8, pady=(0, 6))
-        ttk.Button(jbtn, text="Włącz / wyłącz", command=self._toggle_tx_job).pack(side="left", padx=3)
-        ttk.Button(jbtn, text="Usuń z listy", command=self._delete_tx_job).pack(side="left", padx=3)
-        ttk.Label(
-            jbtn,
-            text="Podwójne kliknięcie wiersza wstawia go z powrotem do pól.",
-        ).pack(side="left", padx=8)
-
-        self.tx_id_var.trace_add("write", self._on_dlc_changed)
-        self.tx_period_var.trace_add("write", self._on_dlc_changed)
-        for var in self.tx_byte_vars:
             var.trace_add("write", self._on_dlc_changed)
 
-    def _build_can_rx_panel(self, pad: dict) -> None:
-        mon = ttk.LabelFrame(self.tab_live, text="Podgląd magistrali")
-        mon.pack(fill="both", expand=True, **pad)
-        self.can_counter = tk.StringVar(value="TX 0    RX 0")
-        head = ttk.Frame(mon)
-        head.pack(fill="x", padx=8, pady=2)
-        ttk.Label(head, textvariable=self.can_counter).pack(side="left")
-        ttk.Button(head, text="Wyczyść podgląd", command=self._clear_can_monitor).pack(side="right")
-        cols = ("dir", "id", "dlc", "data", "count")
-        self.can_tree = ttk.Treeview(mon, columns=cols, show="headings", height=7)
+        bar = ttk.Frame(tx)
+        bar.pack(fill="x", padx=4, pady=2)
+        ttk.Button(bar, text="Wyślij raz", command=self._manual_can_send).pack(side="left", padx=2)
+        ttk.Button(bar, text="Cyklicznie", command=self._add_tx_job).pack(side="left", padx=2)
+        ttk.Button(bar, text="Włącz / wyłącz", command=self._toggle_tx_job).pack(side="left", padx=2)
+        ttk.Button(bar, text="Usuń", command=self._delete_tx_job).pack(side="left", padx=2)
+
+        cols = ("on", "id", "dlc", "data", "period")
+        self.tx_tree = ttk.Treeview(tx, columns=cols, show="headings", height=4)
         for key, title, width, stretch in (
-            ("dir", "Kier.", 60, False),
-            ("id", "ID", 110, False),
-            ("dlc", "DLC", 50, False),
-            ("data", "Dane", 360, True),
-            ("count", "Ile", 70, False),
+            ("on", "", 36, False),
+            ("id", "ID", 80, False),
+            ("dlc", "DLC", 40, False),
+            ("data", "Dane", 200, True),
+            ("period", "Period", 70, False),
+        ):
+            self.tx_tree.heading(key, text=title)
+            self.tx_tree.column(key, width=width, stretch=stretch, anchor="center")
+        self.tx_tree.column("data", anchor="w")
+        self.tx_tree.pack(fill="both", expand=True, padx=4, pady=2)
+        self.tx_tree.bind("<Double-1>", self._load_tx_job)
+        self.tx_tree.bind("<<TreeviewSelect>>", lambda _e: self._remember_tree(self.tx_tree))
+        self._job_tree = self.tx_tree
+        self.tx_id_var.trace_add("write", self._on_dlc_changed)
+        self.tx_period_var.trace_add("write", self._on_dlc_changed)
+
+    def _build_can_rx_panel(self, parent: ttk.Frame) -> None:
+        mon = ttk.LabelFrame(parent, text="Odbiór")
+        mon.pack(fill="both", expand=True, padx=4, pady=2)
+        head = ttk.Frame(mon)
+        head.pack(fill="x", padx=4, pady=1)
+        self.can_counter = tk.StringVar(value="TX 0   RX 0")
+        ttk.Label(head, textvariable=self.can_counter).pack(side="left")
+        ttk.Button(head, text="Wyczyść", command=self._clear_can_monitor).pack(side="right")
+        cols = ("dir", "id", "dlc", "data", "count")
+        self.can_tree = ttk.Treeview(mon, columns=cols, show="headings", height=6)
+        for key, title, width, stretch in (
+            ("dir", "", 42, False),
+            ("id", "ID", 90, False),
+            ("dlc", "DLC", 40, False),
+            ("data", "Dane", 200, True),
+            ("count", "Ile", 50, False),
         ):
             self.can_tree.heading(key, text=title)
-            self.can_tree.column(key, width=width, stretch=stretch)
-        self.can_tree.pack(fill="both", expand=True, padx=8, pady=4)
+            self.can_tree.column(key, width=width, stretch=stretch, anchor="center")
+        self.can_tree.column("data", anchor="w")
+        self.can_tree.pack(fill="both", expand=True, padx=4, pady=2)
+
+    def _remember_tree(self, tree: ttk.Treeview) -> None:
+        self._job_tree = tree
+
+    def _install_wake_jobs(self) -> None:
+        frames = (
+            (0x510, 100, bytes([0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])),
+            (0x12F, 100, encode_ignition(True)),
+            (0x34A, 20, bytes([0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])),
+            (0x2F8, 1000, bytes([0x24, 0x0C, 0x0F, 0x0E, 0x00, 0x00, 0x00, 0xFF])),
+        )
+        for can_id, period_ms, data in frames:
+            self._tx_seq += 1
+            job = {
+                "iid": f"w{self._tx_seq}",
+                "can_id": can_id,
+                "dlc": 8,
+                "data": data,
+                "extended": False,
+                "remote": False,
+                "period_s": period_ms / 1000.0,
+                "enabled": True,
+                "last": 0.0,
+                "wake": True,
+            }
+            self._tx_jobs.append(job)
+            self.wake_tree.insert("", "end", iid=job["iid"], values=self._job_row(job))
 
     def _add_slider(self, parent, title, var, amin, amax, fmt):
         frame = ttk.Frame(parent)
-        frame.pack(fill="x", padx=12, pady=4)
+        frame.pack(fill="x", padx=8, pady=1)
         ttk.Label(frame, text=title, width=16).pack(side="left")
         val_lbl = ttk.Label(frame, width=10)
         val_lbl.pack(side="right")
@@ -660,10 +690,8 @@ class CompanionApp(tk.Tk):
         self.ip_entry.configure(state="normal" if mode == "udp" else "disabled")
         if mode == "robotell":
             self.robotell_row.grid()
-            self.robotell_hint.grid()
         else:
             self.robotell_row.grid_remove()
-            self.robotell_hint.grid_remove()
 
     def _selected_port(self) -> str:
         label = self.port_var.get().strip()
@@ -822,6 +850,12 @@ class CompanionApp(tk.Tk):
 
     def _on_cyclic_toggle(self) -> None:
         self._cyclic_enabled = bool(self.cyclic_var.get())
+        with self._tx_job_lock:
+            for job in self._tx_jobs:
+                if job.get("wake"):
+                    job["enabled"] = self._cyclic_enabled
+                    job["last"] = 0.0
+                    self._paint_job(job)
 
     def _ctrl_disconnect(self) -> None:
         self._connect_cancel.set()
@@ -852,7 +886,11 @@ class CompanionApp(tk.Tk):
                 break
             if self._cyclic_enabled:
                 now = time.monotonic()
+                with self._tx_job_lock:
+                    covered = {job["can_id"] for job in self._tx_jobs}
                 for can_id, data in due(self._signals, last, now):
+                    if can_id in covered:
+                        continue
                     try:
                         can.send(can_id, data)
                         self._tx_count += 1
@@ -975,17 +1013,6 @@ class CompanionApp(tk.Tk):
         remote = self.tx_kind.get() == "remote"
         for i, entry in enumerate(self.tx_byte_entries):
             entry.configure(state="disabled" if remote or i >= dlc else "normal")
-        self._refresh_tx_preview()
-
-    def _refresh_tx_preview(self) -> None:
-        try:
-            can_id, data, dlc, extended, remote = self._parse_tx_frame()
-        except ValueError as exc:
-            self.tx_preview.set(f"Ramka:  {exc}")
-            return
-        fmt = "EXT" if extended else "STD"
-        kind = "RTR" if remote else hex_bytes(data)
-        self.tx_preview.set(f"Ramka:  ID 0x{can_id:X}   {fmt}   DLC {dlc}   {kind}")
 
     def _parse_tx_frame(self) -> tuple[int, bytes, int, bool, bool]:
         raw_id = self.tx_id_var.get().strip().lower().replace("0x", "")
@@ -1020,7 +1047,7 @@ class CompanionApp(tk.Tk):
             job["can_id"], job["data"], job["extended"], job["remote"], job["dlc"],
         )
 
-    def _job_row(self, job: dict) -> tuple[str, str, str, str, str, str]:
+    def _job_row(self, job: dict) -> tuple[str, str, str, str, str]:
         if job["remote"]:
             data = "RTR"
         else:
@@ -1029,10 +1056,10 @@ class CompanionApp(tk.Tk):
             period = "—"
         else:
             period = f"{job['period_s'] * 1000:.0f} ms"
-        fmt = "EXT" if job["extended"] else "STD"
-        if job["remote"]:
-            fmt += " RTR"
-        return ("TAK" if job["enabled"] else "nie", f"0x{job['can_id']:X}", str(job["dlc"]), data, period, fmt)
+        ident = f"0x{job['can_id']:X}"
+        if job["extended"]:
+            ident += " EXT"
+        return ("TAK" if job["enabled"] else "nie", ident, str(job["dlc"]), data, period)
 
     def _manual_can_send(self) -> None:
         if self._robotell is None:
@@ -1061,7 +1088,7 @@ class CompanionApp(tk.Tk):
             return 0.0
         period_ms = float(text)
         if period_ms < 0:
-            raise ValueError("Okres nie może być ujemny")
+            raise ValueError("Period nie może być ujemny")
         return period_ms / 1000.0
 
     def _add_tx_job(self) -> None:
@@ -1071,6 +1098,19 @@ class CompanionApp(tk.Tk):
         except ValueError as exc:
             messagebox.showerror(APP_TITLE, str(exc))
             return
+        if period_s <= 0:
+            messagebox.showerror(APP_TITLE, "Wpisz Period w ms, np. 100.")
+            return
+        with self._tx_job_lock:
+            for job in self._tx_jobs:
+                if job["can_id"] == can_id and job["extended"] == extended and job["remote"] == remote:
+                    job["data"] = data
+                    job["dlc"] = dlc
+                    job["period_s"] = period_s
+                    job["enabled"] = True
+                    job["last"] = 0.0
+                    self._paint_job(job)
+                    return
         self._tx_seq += 1
         job = {
             "iid": str(self._tx_seq),
@@ -1080,16 +1120,27 @@ class CompanionApp(tk.Tk):
             "extended": extended,
             "remote": remote,
             "period_s": period_s,
-            "enabled": period_s > 0,
+            "enabled": True,
             "last": 0.0,
+            "wake": False,
         }
         with self._tx_job_lock:
             self._tx_jobs.append(job)
         self.tx_tree.insert("", "end", iid=job["iid"], values=self._job_row(job))
+        self.tx_tree.selection_set(job["iid"])
         self.tx_tree.see(job["iid"])
+        self._job_tree = self.tx_tree
+
+    def _paint_job(self, job: dict) -> None:
+        tree = self.wake_tree if job.get("wake") else self.tx_tree
+        if tree.exists(job["iid"]):
+            tree.item(job["iid"], values=self._job_row(job))
 
     def _selected_job(self) -> dict | None:
-        sel = self.tx_tree.selection()
+        tree = getattr(self, "_job_tree", None)
+        if tree is None:
+            return None
+        sel = tree.selection()
         if not sel:
             return None
         iid = sel[0]
@@ -1102,22 +1153,21 @@ class CompanionApp(tk.Tk):
     def _toggle_tx_job(self) -> None:
         job = self._selected_job()
         if job is None:
-            messagebox.showinfo(APP_TITLE, "Zaznacz wiersz na liście nadawania.")
-            return
-        if job["period_s"] <= 0 and not job["enabled"]:
-            messagebox.showinfo(APP_TITLE, "Ten wiersz ma okres 0 ms — ustaw okres i dodaj ramkę jeszcze raz.")
+            messagebox.showinfo(APP_TITLE, "Zaznacz wiersz.")
             return
         job["enabled"] = not job["enabled"]
         job["last"] = 0.0
-        self.tx_tree.item(job["iid"], values=self._job_row(job))
+        self._paint_job(job)
 
     def _delete_tx_job(self) -> None:
         job = self._selected_job()
         if job is None:
             return
+        tree = self.wake_tree if job.get("wake") else self.tx_tree
         with self._tx_job_lock:
             self._tx_jobs = [item for item in self._tx_jobs if item["iid"] != job["iid"]]
-        self.tx_tree.delete(job["iid"])
+        if tree.exists(job["iid"]):
+            tree.delete(job["iid"])
 
     def _load_tx_job(self, _event=None) -> None:
         job = self._selected_job()
@@ -1152,6 +1202,12 @@ class CompanionApp(tk.Tk):
             fuel_pct=float(self.fuel_var.get()),
             coolant_c=int(self.clt_var.get()),
         )
+        payload = encode_ignition(self._signals.ignition)
+        with self._tx_job_lock:
+            for job in self._tx_jobs:
+                if job.get("wake") and job["can_id"] == 0x12F and job["data"] != payload:
+                    job["data"] = payload
+                    self._paint_job(job)
 
     def _ctrl_send(self, obj: dict) -> None:
         if self._ctrl is None:
