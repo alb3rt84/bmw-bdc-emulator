@@ -193,6 +193,7 @@ void handleTcpClient(int client) {
           resp[1] = uds[0];
           resp[2] = 0x25;
           respLen = 3;
+          respSa = ta;
           Serial.printf("[DoIP] LA 0x%04X no answer on K-CAN\n", ta);
         }
       }
