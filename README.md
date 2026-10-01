@@ -50,6 +50,9 @@ One UDS server (`uds_bdc`) answers on both media:
 |------|------------|--------------------|
 | **CAN OBD** | BMW ISO-TP: req `0x6F1` + `ecu=0x10`, resp `0x610` | `0x10` session, `0x3E` tester present, `0x22` DID (`F190` VIN, `F186` session, `F18C` SN, `0100` live signals), `0x14`/`0x19` DTC stubs |
 | **DoIP** | LA `0x0010`, TCP/UDP `:13400` | Same UDS handler |
+| **ENET → K-CAN** | Any other LA `0x00XX` (and functional `0xE400`) | Copied to the module K-CAN as `0x6F1` / address `XX`, answer returned to ISTA |
+
+The module under test sits on the ESP32 TWAI pins (GPIO 5 TX, GPIO 4 RX) through one TJA1050. Set `TWAI_BITRATE_KBPS` in `include/config.h` to that K-CAN (100, 125, 250 or 500). Laptop ENET address `192.168.0.100`, module `192.168.0.10`. BDC `0x0010` is still answered locally and is not forwarded.
 
 Example CAN Single-Frame TesterPresent:
 ```

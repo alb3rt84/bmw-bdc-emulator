@@ -13,6 +13,7 @@
 #include "can_bus.h"
 #include "config.h"
 #include "doip_server.h"
+#include "kcan_gw.h"
 #include "lin_master.h"
 #include "obd_can.h"
 #include "pc_link.h"
@@ -25,7 +26,9 @@ void canRxTask(void* /*arg*/) {
   CanFrame f;
   for (;;) {
     if (canBusReceive(CanChannel::Can1_Twai, f, 5)) {
-      obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/true);
+      if (!kcan_gw::onCanFrame(f)) {
+        obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/true);
+      }
     }
     if (canBusReceive(CanChannel::Can2_Mcp, f, 0)) {
       obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/false);
@@ -48,6 +51,7 @@ void setup() {
   }
 
   uds_bdc::init();
+  kcan_gw::init();
   obd_can::init();
   lin::init();
   doip::init();

@@ -5,6 +5,7 @@
 
 #include "doip_server.h"
 #include "config.h"
+#include "kcan_gw.h"
 #include "uds_bdc.h"
 
 #include <ETH.h>
@@ -153,8 +154,13 @@ void handleTcpClient(int client) {
       const uint16_t sa = readU16Be(buf + 8);   // tester
       const uint16_t ta = readU16Be(buf + 10);  // target ECU
 
-      // Only answer when targeted at our BDC LA (or broadcast 0xE400-ish skip)
-      if (ta != kLaGateway) {
+      const uint8_t* uds = buf + 12;
+      const size_t udsLen = plen - 4;
+      const bool toBdc = (ta == kLaGateway);
+      const bool functional = (ta == 0xE400);
+      const bool toModule = (ta >= 0x0001 && ta <= 0x00FF && !toBdc);
+
+      if (!toBdc && !toModule && !functional) {
         uint8_t nack[8 + 5] = {};
         buildHeader(nack, kPtDiagnosticMessageNack, 5);
         memcpy(nack + 8, buf + 8, 4);
@@ -163,10 +169,6 @@ void handleTcpClient(int client) {
         continue;
       }
 
-      const uint8_t* uds = buf + 12;
-      const size_t udsLen = plen - 4;
-
-      // ACK
       uint8_t ack[8 + 5] = {};
       buildHeader(ack, kPtDiagnosticMessageAck, 5);
       memcpy(ack + 8, buf + 8, 4);
@@ -174,10 +176,29 @@ void handleTcpClient(int client) {
       send(client, ack, sizeof(ack), 0);
 
       uint8_t resp[256];
-      const size_t respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
+      size_t respLen = 0;
+      uint16_t respSa = ta;
+
+      if (toBdc) {
+        respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
+        respSa = kLaGateway;
+      } else {
+        const uint8_t ecu = functional ? 0xDF : (uint8_t)ta;
+        uint8_t fromEcu = ecu;
+        respLen = kcan_gw::transact(ecu, uds, udsLen, resp, sizeof(resp), &fromEcu);
+        respSa = functional ? fromEcu : ta;
+        if (respLen == 0 && udsLen > 0) {
+          // ISO 14229 NRC 0x25 — gateway did not get an answer from the module.
+          resp[0] = 0x7F;
+          resp[1] = uds[0];
+          resp[2] = 0x25;
+          respLen = 3;
+          Serial.printf("[DoIP] LA 0x%04X no answer on K-CAN\n", ta);
+        }
+      }
+
       if (respLen > 0) {
-        // Swap SA/TA for reply: BDC → tester
-        sendDiagnosticResponse(client, kLaGateway, sa, resp, respLen);
+        sendDiagnosticResponse(client, respSa, sa, resp, respLen);
       }
     }
   }

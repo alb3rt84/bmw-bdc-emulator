@@ -16,7 +16,9 @@
 #include <IPAddress.h>
 
 // ---------------------------------------------------------------------------
-// CAN1 — ESP32 native TWAI (PT-CAN / K-CAN @ 500 kbit/s)
+// CAN1 — ESP32 native TWAI. This is the K-CAN of the module under test
+// (one TJA1050). ENET/DoIP questions for any address other than BDC 0x0010
+// are copied onto this pair. Set the speed to that K-CAN: 100, 125, 250 or 500.
 // ---------------------------------------------------------------------------
 #ifndef PIN_TWAI_TX
 #define PIN_TWAI_TX 5
@@ -24,7 +26,9 @@
 #ifndef PIN_TWAI_RX
 #define PIN_TWAI_RX 4
 #endif
+#ifndef TWAI_BITRATE_KBPS
 #define TWAI_BITRATE_KBPS 500
+#endif
 
 // ---------------------------------------------------------------------------
 // CAN2 — MCP2515 on HSPI (second domain bus @ 500 kbit/s)
@@ -72,7 +76,9 @@
 #define ETH_PHY_ADDR 1
 #endif
 #ifndef ETH_PHY_POWER
-#define ETH_PHY_POWER -1  // set to a GPIO if your module has a PHY enable pin
+// WT32-ETH01 (GERUI): GPIO16 turns the LAN8720 oscillator on. Use -1 if the
+// board has no PHY enable pin.
+#define ETH_PHY_POWER 16
 #endif
 #ifndef ETH_PHY_MDC
 #define ETH_PHY_MDC 23
@@ -127,4 +133,10 @@
 #endif
 #ifndef OBD_CAN_CHANNEL_SEL
 #define OBD_CAN_CHANNEL_SEL  0
+#endif
+
+// DoIP → K-CAN gateway. ISTA on ENET targets a logical address; the low byte
+// is the BMW ECU address in 0x6F1. Response comes back on 0x600|ecu.
+#ifndef KCAN_GW_TIMEOUT_MS
+#define KCAN_GW_TIMEOUT_MS 1500
 #endif
