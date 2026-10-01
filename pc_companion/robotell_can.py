@@ -61,10 +61,13 @@ class CanFrame:
     data: bytes
     is_extended: bool = False
     is_remote: bool = False
+    dlc: int | None = None
 
-    @property
-    def dlc(self) -> int:
-        return len(self.data)
+    def __post_init__(self) -> None:
+        if self.dlc is None:
+            self.dlc = len(self.data)
+        else:
+            self.dlc = int(self.dlc)
 
 
 @dataclass
@@ -100,7 +103,8 @@ def encode_body(
     body[2] = (can_id >> 16) & 0xFF
     body[3] = (can_id >> 24) & 0xFF
     if not remote:
-        body[4 : 4 + len(payload)] = payload
+        count = min(len(payload), length)
+        body[4 : 4 + count] = payload[:count]
     body[12] = length
     body[13] = channel & 0xFF
     body[14] = CAN_EXTENDED if extended else CAN_STANDARD
@@ -176,6 +180,7 @@ def frame_from_body(body: bytes) -> CanFrame:
         data=data,
         is_extended=body[14] == CAN_EXTENDED,
         is_remote=remote,
+        dlc=dlc,
     )
 
 
@@ -309,10 +314,18 @@ class RobotellCan:
             "i zostaw włączone Auto USB baud. Fabrycznie jest to zwykle 115200."
         )
 
-    def send(self, can_id: int, data: bytes, *, extended: bool = False, remote: bool = False) -> None:
+    def send(
+        self,
+        can_id: int,
+        data: bytes,
+        *,
+        extended: bool = False,
+        remote: bool = False,
+        dlc: int | None = None,
+    ) -> None:
         with self._lock:
             ser = self._require()
-            body = encode_body(can_id, data, extended=extended, remote=remote)
+            body = encode_body(can_id, data, extended=extended, remote=remote, dlc=dlc)
             self._write_body(ser, body)
 
     def recv(self, timeout: float = 0.0) -> CanFrame | None:

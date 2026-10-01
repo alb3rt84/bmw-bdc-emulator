@@ -25,16 +25,15 @@ Plik: `pc_companion\dist\BmwBdcCompanion.exe`
 
 1. Zainstaluj sterownik **CH340** (w Menadżerze urządzeń ma być port COM, często `USB-SERIAL CH340`, VID `1A86`).
 2. Zamknij program producenta **EmbededDebug** — trzyma port i Windows zgłasza „access denied”.
-3. Uruchom exe → zakładka **Live Control** → **Robotell USB-CAN**.
-4. **Refresh**, wybierz port z opisem CH340.
-5. CAN **500000** (BMW). Zostaw **Auto USB baud** (sprawdza 115200, potem 2000000 i pozostałe).
+3. Uruchom exe → zakładka **Transmit** → **Robotell**.
+4. **Odśwież**, wybierz port z opisem CH340.
+5. CAN **500000** (BMW). Zostaw **Auto baud** (sprawdza 115200, potem 2000000 i pozostałe).
 6. **Connect**. Status ma pokazać `Robotell COMx USB … CAN 500000`. Dopiero wtedy USB naprawdę odpowiada.
-7. Suwaki (zapłon, RPM, prędkość, paliwo, temperatura) idą na magistralę jako ramki cykliczne. Licznik **TX** musi rosnąć.
-8. Odbiór widać w tabeli CAN. Własną ramkę wyślesz polami ID + Data.
+7. Ramka jest jak w CANhackerze: **ID**, **DLC 0–8**, bajty **D0–D7**, **Period** w ms. Bajty powyżej DLC są szare. **Dodaj** zapisuje DLC w tabeli nadawania — to ta DLC idzie na magistralę. **Start** włącza cykliczne nadawanie, **Stop** je zatrzymuje. **Wyślij raz** wysyła jedną ramkę od razu.
+8. **Zapisz** zapisuje listę do pliku tekstowego (`12F 3 100 STD DATA AA BB CC`). **Wczytaj** wczytuje taki plik z powrotem.
+9. Odebrane ramki są w osobnym oknie **Receive** (przycisk Receive otwiera je ponownie). Suwaki KL15, RPM, km/h, paliwo i temperatura podmieniają dane w wierszach o tym samym ID i nie zmieniają ich DLC.
 
-Jeśli Connect kończy się komunikatem, że port się otwiera, ale adapter nie odpowiada — to nie jest ten COM albo prędkość USB jest nietypowa. Zostaw Auto USB baud i wybierz port CH340.
-
-„Nadawaj ramki BDC” włączone = emulator stanowiskowy. Odznacz, jeśli adapter jest tylko do podsłuchu.
+Jeśli Connect kończy się komunikatem, że port się otwiera, ale adapter nie odpowiada — to nie jest ten COM albo prędkość USB jest nietypowa. Zostaw Auto baud i wybierz port CH340.
 
 CANH/CANL potrzebują drugiego węzła i terminacji 120 Ω. Samo USB może być połączone, a ramki i tak nie wyjdą na pustą magistralę (brak ACK).
 
