@@ -20,13 +20,23 @@ bool g_mcpOk  = false;
 SPIClass g_hspi(HSPI);
 
 CAN_SPEED mcpSpeedFromKbps(int kbps) {
-  // MCP2515 library enums — 500 kbit/s is CAN_500KBPS
   switch (kbps) {
+    case 100: return CAN_100KBPS;
     case 125: return CAN_125KBPS;
     case 250: return CAN_250KBPS;
     case 500: return CAN_500KBPS;
     case 1000: return CAN_1000KBPS;
     default: return CAN_500KBPS;
+  }
+}
+
+twai_timing_config_t twaiTimingFromKbps(int kbps) {
+  switch (kbps) {
+    case 100: return TWAI_TIMING_CONFIG_100KBITS();
+    case 125: return TWAI_TIMING_CONFIG_125KBITS();
+    case 250: return TWAI_TIMING_CONFIG_250KBITS();
+    case 1000: return TWAI_TIMING_CONFIG_1MBITS();
+    default: return TWAI_TIMING_CONFIG_500KBITS();
   }
 }
 
@@ -38,7 +48,7 @@ bool initTwai() {
   g_config.tx_queue_len = 32;
   g_config.rx_queue_len = 32;
 
-  twai_timing_config_t t_config = TWAI_TIMING_CONFIG_500KBITS();
+  twai_timing_config_t t_config = twaiTimingFromKbps(TWAI_BITRATE_KBPS);
   twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
   if (twai_driver_install(&g_config, &t_config, &f_config) != ESP_OK) {

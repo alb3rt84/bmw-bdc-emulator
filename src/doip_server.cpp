@@ -5,6 +5,7 @@
 
 #include "doip_server.h"
 #include "config.h"
+#include "kcan_gw.h"
 #include "uds_bdc.h"
 
 #include <ETH.h>
@@ -38,6 +39,7 @@ constexpr uint16_t kLaTester  = 0x0E00;
 bool g_ethReady = false;
 int  g_udpSock  = -1;
 int  g_tcpSock  = -1;
+int  g_enetSock = -1;
 
 void writeU16Be(uint8_t* p, uint16_t v) {
   p[0] = (uint8_t)(v >> 8);
@@ -116,6 +118,119 @@ void sendDiagnosticResponse(int client, uint16_t sa, uint16_t ta,
   send(client, packet, 8 + plen, 0);
 }
 
+bool recvFull(int fd, uint8_t* dst, size_t n) {
+  size_t got = 0;
+  while (got < n) {
+    const int r = recv(fd, dst + got, n - got, 0);
+    if (r == 0) return false;
+    if (r < 0) {
+      if (errno == EINTR) continue;
+      return false;
+    }
+    got += (size_t)r;
+  }
+  return true;
+}
+
+bool sendFull(int fd, const uint8_t* src, size_t n) {
+  size_t sent = 0;
+  while (sent < n) {
+    const int r = send(fd, src + sent, n - sent, 0);
+    if (r <= 0) return false;
+    sent += (size_t)r;
+  }
+  return true;
+}
+
+bool sendHsfz(int fd, uint16_t ctrl, const uint8_t* body, size_t bodyLen) {
+  uint8_t hdr[6];
+  hdr[0] = (uint8_t)((bodyLen >> 24) & 0xFF);
+  hdr[1] = (uint8_t)((bodyLen >> 16) & 0xFF);
+  hdr[2] = (uint8_t)((bodyLen >> 8) & 0xFF);
+  hdr[3] = (uint8_t)(bodyLen & 0xFF);
+  hdr[4] = (uint8_t)(ctrl >> 8);
+  hdr[5] = (uint8_t)(ctrl & 0xFF);
+  if (!sendFull(fd, hdr, 6)) return false;
+  if (bodyLen == 0) return true;
+  return sendFull(fd, body, bodyLen);
+}
+
+// BMW ENET: TCP 6801, HSFZ. Tester (usually 0xF4) sends control 0x0001.
+// Gateway echoes control 0x0002, then answers with control 0x0001 and
+// source/target swapped. Address byte is the same one used on CAN 0x6F1.
+void handleHsfzClient(int client) {
+  timeval tv = {};
+  tv.tv_sec = 30;
+  setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  const int flags = fcntl(client, F_GETFL, 0);
+  if (flags >= 0) fcntl(client, F_SETFL, flags & ~O_NONBLOCK);
+
+  uint8_t body[258];
+  Serial.println(F("[ENET] HSFZ session on port 6801"));
+  for (;;) {
+    uint8_t hdr[6];
+    if (!recvFull(client, hdr, 6)) break;
+    const uint32_t len = ((uint32_t)hdr[0] << 24) | ((uint32_t)hdr[1] << 16) |
+                         ((uint32_t)hdr[2] << 8) | hdr[3];
+    const uint16_t ctrl = (uint16_t)((hdr[4] << 8) | hdr[5]);
+    if (len > sizeof(body)) break;
+    if (len > 0 && !recvFull(client, body, len)) break;
+
+    if (ctrl == 0x0012) {
+      const uint8_t alive[2] = {uds_bdc::kCanEcuAddr, 0xF4};
+      sendHsfz(client, 0x0012, alive, sizeof(alive));
+      continue;
+    }
+    if (ctrl == 0x0011 && len == 0) {
+      static const char vin[] = "WBADEMOGCHASSIS01";
+      sendHsfz(client, 0x0011, reinterpret_cast<const uint8_t*>(vin), 17);
+      continue;
+    }
+    if (ctrl != 0x0001 || len < 2) {
+      Serial.printf("[ENET] ctrl 0x%04X len %u\n", ctrl, (unsigned)len);
+      continue;
+    }
+
+    const uint8_t src = body[0];
+    const uint8_t dst = body[1];
+    const uint8_t* uds = body + 2;
+    const size_t udsLen = len - 2;
+    if (udsLen > 256) {
+      sendHsfz(client, 0x0044, nullptr, 0);
+      continue;
+    }
+
+    sendHsfz(client, 0x0002, body, len);
+
+    uint8_t resp[256];
+    size_t respLen = 0;
+    uint8_t respSrc = dst;
+    if (dst == uds_bdc::kCanEcuAddr) {
+      respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
+    } else {
+      uint8_t from = dst;
+      respLen = kcan_gw::transact(dst, uds, udsLen, resp, sizeof(resp), &from);
+      if (respLen > 0) respSrc = from;
+      if (respLen == 0 && udsLen > 0) {
+        resp[0] = 0x7F;
+        resp[1] = uds[0];
+        resp[2] = 0x25;
+        respLen = 3;
+      }
+    }
+    if (respLen == 0) continue;
+
+    uint8_t out[2 + 256];
+    out[0] = respSrc;
+    out[1] = src;
+    memcpy(out + 2, resp, respLen);
+    sendHsfz(client, 0x0001, out, 2 + respLen);
+    Serial.printf("[ENET] 0x%02X -> 0x%02X  %u bytes\n", src, dst, (unsigned)respLen);
+  }
+  close(client);
+  Serial.println(F("[ENET] session closed"));
+}
+
 void handleTcpClient(int client) {
   uint8_t buf[1100];
   for (;;) {
@@ -153,8 +268,13 @@ void handleTcpClient(int client) {
       const uint16_t sa = readU16Be(buf + 8);   // tester
       const uint16_t ta = readU16Be(buf + 10);  // target ECU
 
-      // Only answer when targeted at our BDC LA (or broadcast 0xE400-ish skip)
-      if (ta != kLaGateway) {
+      const uint8_t* uds = buf + 12;
+      const size_t udsLen = plen - 4;
+      const bool toBdc = (ta == kLaGateway);
+      const bool functional = (ta == 0xE400);
+      const bool toModule = (ta >= 0x0001 && ta <= 0x00FF && !toBdc);
+
+      if (!toBdc && !toModule && !functional) {
         uint8_t nack[8 + 5] = {};
         buildHeader(nack, kPtDiagnosticMessageNack, 5);
         memcpy(nack + 8, buf + 8, 4);
@@ -163,10 +283,6 @@ void handleTcpClient(int client) {
         continue;
       }
 
-      const uint8_t* uds = buf + 12;
-      const size_t udsLen = plen - 4;
-
-      // ACK
       uint8_t ack[8 + 5] = {};
       buildHeader(ack, kPtDiagnosticMessageAck, 5);
       memcpy(ack + 8, buf + 8, 4);
@@ -174,10 +290,30 @@ void handleTcpClient(int client) {
       send(client, ack, sizeof(ack), 0);
 
       uint8_t resp[256];
-      const size_t respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
+      size_t respLen = 0;
+      uint16_t respSa = ta;
+
+      if (toBdc) {
+        respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
+        respSa = kLaGateway;
+      } else {
+        const uint8_t ecu = functional ? 0xDF : (uint8_t)ta;
+        uint8_t fromEcu = ecu;
+        respLen = kcan_gw::transact(ecu, uds, udsLen, resp, sizeof(resp), &fromEcu);
+        respSa = functional ? fromEcu : ta;
+        if (respLen == 0 && udsLen > 0) {
+          // ISO 14229 NRC 0x25 — gateway did not get an answer from the module.
+          resp[0] = 0x7F;
+          resp[1] = uds[0];
+          resp[2] = 0x25;
+          respLen = 3;
+          respSa = ta;
+          Serial.printf("[DoIP] LA 0x%04X no answer on K-CAN\n", ta);
+        }
+      }
+
       if (respLen > 0) {
-        // Swap SA/TA for reply: BDC → tester
-        sendDiagnosticResponse(client, kLaGateway, sa, resp, respLen);
+        sendDiagnosticResponse(client, respSa, sa, resp, respLen);
       }
     }
   }
@@ -280,9 +416,20 @@ void serverTask(void* /*arg*/) {
   listen(g_tcpSock, 2);
   fcntl(g_tcpSock, F_SETFL, O_NONBLOCK);
 
+  g_enetSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  setsockopt(g_enetSock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+  sockaddr_in ea = {};
+  ea.sin_family      = AF_INET;
+  ea.sin_port        = htons(ENET_HSFZ_TCP_PORT);
+  ea.sin_addr.s_addr = htonl(INADDR_ANY);
+  bind(g_enetSock, (sockaddr*)&ea, sizeof(ea));
+  listen(g_enetSock, 2);
+  fcntl(g_enetSock, F_SETFL, O_NONBLOCK);
+
   Serial.printf("[DoIP] BDC LA=0x%04X listening UDP/TCP :%u (IP %s)\n",
                 kLaGateway, DOIP_TCP_DATA_PORT,
                 ETH.localIP().toString().c_str());
+  Serial.printf("[ENET] HSFZ listening TCP :%u\n", ENET_HSFZ_TCP_PORT);
 
   for (;;) {
     handleUdpDiscovery();
@@ -294,6 +441,13 @@ void serverTask(void* /*arg*/) {
       Serial.printf("[DoIP] TCP client %s\n", inet_ntoa(ca.sin_addr));
       fcntl(client, F_SETFL, O_NONBLOCK);
       handleTcpClient(client);
+    }
+
+    cal = sizeof(ca);
+    const int enet = accept(g_enetSock, (sockaddr*)&ca, &cal);
+    if (enet >= 0) {
+      Serial.printf("[ENET] TCP client %s\n", inet_ntoa(ca.sin_addr));
+      handleHsfzClient(enet);
     }
 
     vTaskDelay(pdMS_TO_TICKS(5));

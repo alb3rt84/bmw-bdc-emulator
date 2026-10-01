@@ -25,7 +25,7 @@ enum class CanChannel : uint8_t {
 };
 
 /**
- * Initialise TWAI @ 500 kbit/s and MCP2515 @ 500 kbit/s.
+ * Initialise TWAI and MCP2515 at the bitrates in config.h.
  * @return true if both controllers started successfully.
  */
 bool canBusInit();

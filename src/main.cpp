@@ -4,6 +4,7 @@
  *
  * Dual-path factory diagnostics:
  *   CAN OBD  — BMW 0x6F1 ISO-TP → uds_bdc
+ *   ENET     — Ethernet TCP :6801 (HSFZ) → K-CAN of the module
  *   DoIP     — Ethernet :13400  → uds_bdc (same handler)
  */
 
@@ -13,6 +14,7 @@
 #include "can_bus.h"
 #include "config.h"
 #include "doip_server.h"
+#include "kcan_gw.h"
 #include "lin_master.h"
 #include "obd_can.h"
 #include "pc_link.h"
@@ -25,7 +27,9 @@ void canRxTask(void* /*arg*/) {
   CanFrame f;
   for (;;) {
     if (canBusReceive(CanChannel::Can1_Twai, f, 5)) {
-      obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/true);
+      if (!kcan_gw::onCanFrame(f)) {
+        obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/true);
+      }
     }
     if (canBusReceive(CanChannel::Can2_Mcp, f, 0)) {
       obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/false);
@@ -41,13 +45,14 @@ void setup() {
   delay(200);
   Serial.println();
   Serial.println(F("=== BMW G-Chassis BDC/ZGM Bench Emulator ==="));
-  Serial.println(F("Diag: CAN OBD (0x6F1) + DoIP :13400  |  PC JSON :13401"));
+  Serial.println(F("Diag: ENET :6801 + DoIP :13400 + CAN 0x6F1  |  PC JSON :13401"));
 
   if (!canBusInit()) {
     Serial.println(F("[FATAL] No CAN controller available"));
   }
 
   uds_bdc::init();
+  kcan_gw::init();
   obd_can::init();
   lin::init();
   doip::init();
