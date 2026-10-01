@@ -295,6 +295,7 @@ class CompanionApp(tk.Tk):
         self._tx_count = 0
         self._rx_count = 0
         self._rx_seen: dict[tuple, int] = {}
+        self._rx_last: dict[tuple, float] = {}
         self._port_map: dict[str, str] = {}
         self._tx_jobs: list[dict] = []
         self._tx_job_lock = threading.Lock()
@@ -448,7 +449,7 @@ class CompanionApp(tk.Tk):
 
     def _build_can_tx_panel(self, parent: ttk.Frame) -> None:
         tx = ttk.LabelFrame(parent, text="Nadawanie")
-        tx.pack(fill="both", expand=True, padx=4, pady=2)
+        tx.pack(fill="x", padx=4, pady=2)
 
         top = ttk.Frame(tx)
         top.pack(fill="x", padx=4, pady=2)
@@ -503,7 +504,7 @@ class CompanionApp(tk.Tk):
         ttk.Button(bar, text="Usuń", command=self._delete_tx_job).pack(side="left", padx=2)
 
         cols = ("on", "id", "dlc", "data", "period")
-        self.tx_tree = ttk.Treeview(tx, columns=cols, show="headings", height=4)
+        self.tx_tree = ttk.Treeview(tx, columns=cols, show="headings", height=3)
         for key, title, width, stretch in (
             ("on", "", 36, False),
             ("id", "ID", 80, False),
@@ -514,7 +515,7 @@ class CompanionApp(tk.Tk):
             self.tx_tree.heading(key, text=title)
             self.tx_tree.column(key, width=width, stretch=stretch, anchor="center")
         self.tx_tree.column("data", anchor="w")
-        self.tx_tree.pack(fill="both", expand=True, padx=4, pady=2)
+        self.tx_tree.pack(fill="x", padx=4, pady=2)
         self.tx_tree.bind("<Double-1>", self._load_tx_job)
         self.tx_tree.bind("<<TreeviewSelect>>", lambda _e: self._remember_tree(self.tx_tree))
         self._job_tree = self.tx_tree
@@ -522,26 +523,38 @@ class CompanionApp(tk.Tk):
         self.tx_period_var.trace_add("write", self._on_dlc_changed)
 
     def _build_can_rx_panel(self, parent: ttk.Frame) -> None:
-        mon = ttk.LabelFrame(parent, text="Odbiór")
+        mon = ttk.LabelFrame(parent, text="Receive")
         mon.pack(fill="both", expand=True, padx=4, pady=2)
         head = ttk.Frame(mon)
         head.pack(fill="x", padx=4, pady=1)
         self.can_counter = tk.StringVar(value="TX 0   RX 0")
         ttk.Label(head, textvariable=self.can_counter).pack(side="left")
         ttk.Button(head, text="Wyczyść", command=self._clear_can_monitor).pack(side="right")
-        cols = ("dir", "id", "dlc", "data", "count")
-        self.can_tree = ttk.Treeview(mon, columns=cols, show="headings", height=6)
-        for key, title, width, stretch in (
-            ("dir", "", 42, False),
-            ("id", "ID", 90, False),
-            ("dlc", "DLC", 40, False),
-            ("data", "Dane", 200, True),
-            ("count", "Ile", 50, False),
-        ):
+        cols = ("id", "dlc", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "count", "period")
+        wrap = ttk.Frame(mon)
+        wrap.pack(fill="both", expand=True, padx=4, pady=2)
+        self.can_tree = ttk.Treeview(wrap, columns=cols, show="headings", height=8)
+        headings = (
+            ("id", "ID", 72),
+            ("dlc", "DLC", 36),
+            ("d0", "D0", 32),
+            ("d1", "D1", 32),
+            ("d2", "D2", 32),
+            ("d3", "D3", 32),
+            ("d4", "D4", 32),
+            ("d5", "D5", 32),
+            ("d6", "D6", 32),
+            ("d7", "D7", 32),
+            ("count", "Ile", 44),
+            ("period", "Period", 58),
+        )
+        for key, title, width in headings:
             self.can_tree.heading(key, text=title)
-            self.can_tree.column(key, width=width, stretch=stretch, anchor="center")
-        self.can_tree.column("data", anchor="w")
-        self.can_tree.pack(fill="both", expand=True, padx=4, pady=2)
+            self.can_tree.column(key, width=width, stretch=False, anchor="center")
+        scroll = ttk.Scrollbar(wrap, orient="vertical", command=self.can_tree.yview)
+        self.can_tree.configure(yscrollcommand=scroll.set)
+        self.can_tree.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
 
     def _remember_tree(self, tree: ttk.Treeview) -> None:
         self._job_tree = tree
@@ -918,7 +931,6 @@ class CompanionApp(tk.Tk):
                         extended=job["extended"], remote=job["remote"], dlc=job["dlc"],
                     )
                     self._tx_count += 1
-                    self._rx_q.put(("can", self._frame_from_job(job), "TX"))
                 except Exception as exc:
                     self._rx_q.put(("lost", str(exc)))
                     self._can_stop.set()
@@ -976,18 +988,26 @@ class CompanionApp(tk.Tk):
         self.after(50, self._poll_rx)
 
     def _note_can_frame(self, frame, direction: str = "RX") -> None:
+        if direction != "RX":
+            return
         can_id = frame.arbitration_id
         extended = bool(frame.is_extended)
-        key = (direction, can_id, extended)
+        key = (can_id, extended, bool(frame.is_remote))
         count = self._rx_seen.get(key, 0) + 1
         self._rx_seen[key] = count
+        now = time.monotonic()
+        prev = self._rx_last.get(key)
+        period = "" if prev is None else f"{(now - prev) * 1000:.0f}"
+        self._rx_last[key] = now
+        cells = [""] * 8
         if frame.is_remote:
-            data = "RTR"
+            cells[0] = "RTR"
         else:
-            data = hex_bytes(frame.data)
-        suffix = " EXT" if extended else " STD"
-        iid = f"{direction}:{can_id:X}:{suffix}"
-        values = (direction, f"0x{can_id:X}{suffix}", frame.dlc, data, count)
+            for i, byte in enumerate(frame.data[:8]):
+                cells[i] = f"{byte:02X}"
+        ident = f"0x{can_id:X}" + (" EXT" if extended else "")
+        iid = f"rx-{can_id:X}-{'e' if extended else 's'}-{'r' if frame.is_remote else 'd'}"
+        values = (ident, frame.dlc, *cells, count, period)
         if self.can_tree.exists(iid):
             self.can_tree.item(iid, values=values)
         else:
@@ -1002,6 +1022,7 @@ class CompanionApp(tk.Tk):
         if kids:
             self.can_tree.delete(*kids)
         self._rx_seen.clear()
+        self._rx_last.clear()
         self._rx_count = 0
 
     def _on_dlc_changed(self, *_args) -> None:
@@ -1076,8 +1097,6 @@ class CompanionApp(tk.Tk):
             messagebox.showerror(APP_TITLE, str(exc))
             return
         self._tx_count += 1
-        frame = CanFrame(can_id, data, extended, remote, dlc)
-        self._note_can_frame(frame, "TX")
         kind = "RTR" if remote else hex_bytes(data)
         fmt = "EXT" if extended else "STD"
         self._append_log(f"TX  ID 0x{can_id:X}  {fmt}  DLC {dlc}  {kind}")
