@@ -90,9 +90,11 @@
 #define ETH_CLK_MODE ETH_CLOCK_GPIO0_IN
 #endif
 
-// DoIP well-known port (ISO 13400)
+// DoIP well-known port (ISO 13400). Classic BMW ENET (E-Sys / ISTA cable)
+// is a different protocol: HSFZ on TCP 6801.
 #define DOIP_UDP_DISCOVERY_PORT 13400
 #define DOIP_TCP_DATA_PORT      13400
+#define ENET_HSFZ_TCP_PORT      6801
 
 // Static IP for bench (match your laptop subnet / E-Sys interface)
 #define ETH_LOCAL_IP   IPAddress(192, 168, 0, 10)
@@ -105,7 +107,7 @@
 #define TASK_STACK_CAN_CYCLIC   4096
 #define TASK_STACK_CAN_RX       4096
 #define TASK_STACK_LIN          3072
-#define TASK_STACK_DOIP         8192
+#define TASK_STACK_DOIP         12288
 #define TASK_STACK_PC_LINK      4096
 
 #define TASK_PRIO_CAN_CYCLIC    5   // highest — time-critical wake / ignition

@@ -49,10 +49,10 @@ One UDS server (`uds_bdc`) answers on both media:
 | Path | Addressing | Services (initial) |
 |------|------------|--------------------|
 | **CAN OBD** | BMW ISO-TP: req `0x6F1` + `ecu=0x10`, resp `0x610` | `0x10` session, `0x3E` tester present, `0x22` DID (`F190` VIN, `F186` session, `F18C` SN, `0100` live signals), `0x14`/`0x19` DTC stubs |
-| **DoIP** | LA `0x0010`, TCP/UDP `:13400` | Same UDS handler |
-| **ENET → K-CAN** | Any other LA `0x00XX` (and functional `0xE400`) | Copied to the module K-CAN as `0x6F1` / address `XX`, answer returned to ISTA |
+| **ENET** | TCP **6801** (HSFZ). Tester `0xF4`, ECU address in the HSFZ target byte | Address `0x10` answered locally. Any other address is copied to the module K-CAN as `0x6F1` and the answer goes back to the tester |
+| **DoIP** | LA `0x0010`, TCP/UDP `:13400` | Same UDS handler, plus the same K-CAN forward for other logical addresses |
 
-The module under test sits on the ESP32 TWAI pins (GPIO 5 TX, GPIO 4 RX) through one TJA1050. Set `TWAI_BITRATE_KBPS` in `include/config.h` to that K-CAN (100, 125, 250 or 500). Laptop ENET address `192.168.0.100`, module `192.168.0.10`. BDC `0x0010` is still answered locally and is not forwarded.
+The module under test sits on the ESP32 TWAI pins (GPIO 5 TX, GPIO 4 RX) through one TJA1050. Set `TWAI_BITRATE_KBPS` in `include/config.h` to that K-CAN (100, 125, 250 or 500). Laptop address `192.168.0.100`, ESP32 `192.168.0.10`. Point E-Sys / ISTA ENET at that IP, port **6801**.
 
 Example CAN Single-Frame TesterPresent:
 ```
@@ -161,7 +161,7 @@ Crystal: code tries **8 MHz** then **16 MHz**.
 | PHY power (opt.) | set `ETH_PHY_POWER` in `config.h` |
 
 Static IP default: **192.168.0.10/24** (change in `include/config.h`).  
-DoIP: **UDP + TCP port 13400** for E-Sys / ISTA discovery and sessions.
+ENET (E-Sys / ISTA cable): **TCP port 6801**, HSFZ. DoIP stays on **UDP + TCP port 13400**.
 
 ### Pin conflict summary
 
