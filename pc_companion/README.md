@@ -4,8 +4,39 @@ Tkinter GUI with two diagnostic paths matching the ESP32 firmware:
 
 | Tab | Path | Port | Purpose |
 |-----|------|------|---------|
-| **Live Control** | JSON Serial / UDP | COM or **:13401** | KL15, RPM, speed, fuel, coolant → cyclic CAN |
+| **Live Control** | **Robotell USB-CAN** | COM (CH340) | PC sam nadaje ramki BDC na magistralę CAN |
+| **Live Control** | JSON Serial / UDP | COM or **:13401** | To samo, ale przez firmware ESP32 |
 | **DoIP UDS** | Factory DoIP | **:13400** | Same UDS BDC as CAN OBD (session, DID, DTC) |
+
+## Adapter Robotell — program EXE (bez Pythona przy uruchamianiu)
+
+Adapter Robotell to układ **CH340 + STM32**. Mówi własnym protokołem binarnym, nie tekstem JSON i nie SLCAN. Dlatego zwykły port COM w starym trybie „Serial” nie nawiązywał połączenia.
+
+Gotowy program to `BmwBdcCompanion.exe`. Pythona potrzebujesz tylko raz, żeby go zbudować:
+
+```bat
+cd pc_companion
+build_exe.bat
+```
+
+Plik: `pc_companion\dist\BmwBdcCompanion.exe`
+
+### Połączenie
+
+1. Zainstaluj sterownik **CH340** (w Menadżerze urządzeń ma być port COM, często `USB-SERIAL CH340`, VID `1A86`).
+2. Zamknij program producenta **EmbededDebug** — trzyma port i Windows zgłasza „access denied”.
+3. Uruchom exe → zakładka **Live Control** → **Robotell USB-CAN**.
+4. **Refresh**, wybierz port z opisem CH340.
+5. CAN **500000** (BMW). Zostaw **Auto USB baud** (sprawdza 115200, potem 2000000 i pozostałe).
+6. **Connect**. Status ma pokazać `Robotell COMx USB … CAN 500000`. Dopiero wtedy USB naprawdę odpowiada.
+7. Suwaki (zapłon, RPM, prędkość, paliwo, temperatura) idą na magistralę jako ramki cykliczne. Licznik **TX** musi rosnąć.
+8. Odbiór widać w tabeli CAN. Własną ramkę wyślesz polami ID + Data.
+
+Jeśli Connect kończy się komunikatem, że port się otwiera, ale adapter nie odpowiada — to nie jest ten COM albo prędkość USB jest nietypowa. Zostaw Auto USB baud i wybierz port CH340.
+
+„Nadawaj ramki BDC” włączone = emulator stanowiskowy. Odznacz, jeśli adapter jest tylko do podsłuchu.
+
+CANH/CANL potrzebują drugiego węzła i terminacji 120 Ω. Samo USB może być połączone, a ramki i tak nie wyjdą na pustą magistralę (brak ACK).
 
 ## Features
 

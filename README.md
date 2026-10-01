@@ -63,7 +63,10 @@ ID 0x610  data: F1 02 7E 00 ...
 
 ## PC Companion GUI
 
-Python/Tkinter app (`pc_companion/gui_app.py`) controls ignition + RPM/speed/fuel/coolant over Serial or UDP.
+Python/Tkinter app (`pc_companion/gui_app.py`) controls ignition + RPM/speed/fuel/coolant.
+
+- **Robotell USB-CAN** — PC talks to the CH340 adapter directly (binary protocol, CAN 500 kbit/s) and transmits the cyclic BDC frames. Build `pc_companion\dist\BmwBdcCompanion.exe` with `build_exe.bat`.
+- **Serial / UDP :13401** — same signals through the ESP32 firmware.
 
 ```bat
 cd pc_companion
