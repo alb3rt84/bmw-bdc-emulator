@@ -52,7 +52,7 @@ One UDS server (`uds_bdc`) answers on both media:
 | **ENET** | TCP **6801** (HSFZ). Tester `0xF4`, ECU address in the HSFZ target byte | Address `0x10` answered locally. Any other address is copied to the module K-CAN as `0x6F1` and the answer goes back to the tester |
 | **DoIP** | LA `0x0010`, TCP/UDP `:13400` | Same UDS handler, plus the same K-CAN forward for other logical addresses |
 
-The module under test sits on the ESP32 TWAI pins (GPIO 5 TX, GPIO 4 RX) through one TJA1050. Set `TWAI_BITRATE_KBPS` in `include/config.h` to that K-CAN (100, 125, 250 or 500). Laptop address `192.168.0.100`, ESP32 `192.168.0.10`. Point E-Sys / ISTA ENET at that IP, port **6801**.
+The module under test sits on the MCP2515 CAN adapter. SPI wiring to the ESP32 Ethernet board: CS GPIO15, SCK GPIO14, MOSI GPIO13, MISO GPIO12, INT GPIO33, common GND. Set `MCP_BITRATE_KBPS` in `include/config.h` to that K-CAN (100, 125, 250 or 500). BATT48 on K-CAN8 is 500. Laptop address `192.168.0.100`, ESP32 `192.168.0.10`, ENET port **6801**.
 
 Example CAN Single-Frame TesterPresent:
 ```

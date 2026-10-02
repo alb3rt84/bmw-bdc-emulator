@@ -31,8 +31,9 @@
 #endif
 
 // ---------------------------------------------------------------------------
-// CAN2 — MCP2515 on HSPI (second domain bus @ 500 kbit/s)
-// Avoids conflict with Ethernet MDIO/MDC/TXD0 on VSPI pins 18/19/23.
+// CAN2 — MCP2515 module (the CAN adapter on the bench). ENET questions go out
+// here. HSPI avoids the Ethernet pins 18/19/23. Speed must match the module
+// K-CAN: 100, 125, 250 or 500. BATT48 / K-CAN8 is 500.
 // ---------------------------------------------------------------------------
 #ifndef PIN_MCP_CS
 #define PIN_MCP_CS 15
