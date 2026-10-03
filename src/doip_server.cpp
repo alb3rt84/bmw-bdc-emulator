@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
+#include <lwip/netif.h>
 #include <lwip/sockets.h>
 
 namespace doip {
@@ -91,17 +92,45 @@ size_t buildHeader(uint8_t* out, uint16_t payloadType, uint32_t payloadLen) {
 }
 
 size_t buildVehicleAnnounce(uint8_t* payload) {
-  const char vin[17] = {'W','B','A','D','E','M','O','G','C','H','A','S','S','I','S','0','1'};
-  memcpy(payload + 0, vin, 17);
+  memcpy(payload, BENCH_VIN, 17);
   writeU16Be(payload + 17, kLaGateway);
-  memset(payload + 19, 0x00, 12);
+  uint8_t mac[6] = {};
+  ETH.macAddress(mac);
+  memcpy(payload + 19, mac, 6);
+  memcpy(payload + 25, mac, 6);
   payload[31] = 0x00;
   return 32;
 }
 
+struct netif* ethNetif() {
+  struct netif* n = netif_find("en0");
+  return n != nullptr ? n : netif_default;
+}
+
+// Send as if every IPv4 address were on this cable. EDIABAS HostIdentService
+// 255.255.255.255 delivers the probe from whatever address the laptop has.
+int sendOnCable(int fd, const uint8_t* data, size_t len, const sockaddr_in& to) {
+  const uint32_t dest = to.sin_addr.s_addr;
+  const bool broadcast = dest == htonl(INADDR_BROADCAST) ||
+                         dest == inet_addr("169.254.255.255");
+  struct netif* nif = ethNetif();
+  ip4_addr_t savedMask = {};
+  bool opened = false;
+  if (!broadcast && nif != nullptr) {
+    savedMask = *netif_ip4_netmask(nif);
+    ip4_addr_t openMask = {};
+    openMask.addr = 0;
+    netif_set_netmask(nif, &openMask);
+    opened = true;
+  }
+  const int sent = sendto(fd, data, len, 0, (const sockaddr*)&to, sizeof(to));
+  if (opened) netif_set_netmask(nif, &savedMask);
+  return sent;
+}
+
 void sendUdp(const uint8_t* data, size_t len, const sockaddr_in& to) {
   if (g_udpSock < 0) return;
-  sendto(g_udpSock, data, len, 0, (const sockaddr*)&to, sizeof(to));
+  sendOnCable(g_udpSock, data, len, to);
 }
 
 void handleUdpDiscovery() {
@@ -435,6 +464,7 @@ bool init() {
 }
 
 void sendVehicleIdent(const sockaddr_in& to) {
+  if (g_hsfzUdp < 0) return;
   uint8_t ident[50];
   buildVehicleIdent(ident);
   uint8_t pkt[56];
@@ -445,7 +475,9 @@ void sendVehicleIdent(const sockaddr_in& to) {
   pkt[4] = 0x00;
   pkt[5] = 0x11;
   memcpy(pkt + 6, ident, 50);
-  sendto(g_hsfzUdp, pkt, sizeof(pkt), 0, (sockaddr*)&to, sizeof(to));
+  if (sendOnCable(g_hsfzUdp, pkt, sizeof(pkt), to) < 0) {
+    Serial.printf("[ENET] ident send failed errno %d\n", errno);
+  }
 }
 
 void announceVehicle() {

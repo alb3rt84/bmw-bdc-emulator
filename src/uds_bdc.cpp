@@ -9,6 +9,7 @@
 
 #include "uds_bdc.h"
 #include "bmw_frames.h"
+#include "config.h"
 
 #include <Arduino.h>
 #include <string.h>
@@ -19,9 +20,12 @@ namespace {
 
 uint8_t g_session = 0x01;  // defaultSession
 
-// Placeholder VIN — EDIT to match your bench vehicle / E-Sys project
-const char kVin[17] = {'W', 'B', 'A', 'D', 'E', 'M', 'O', 'G', 'C',
-                       'H', 'A', 'S', 'S', 'I', 'S', '0', '1'};
+// Same VIN HSFZ and DoIP announce. I and O are not legal in a VIN.
+const char kVin[17] = {
+    BENCH_VIN[0],  BENCH_VIN[1],  BENCH_VIN[2],  BENCH_VIN[3],  BENCH_VIN[4],
+    BENCH_VIN[5],  BENCH_VIN[6],  BENCH_VIN[7],  BENCH_VIN[8],  BENCH_VIN[9],
+    BENCH_VIN[10], BENCH_VIN[11], BENCH_VIN[12], BENCH_VIN[13], BENCH_VIN[14],
+    BENCH_VIN[15], BENCH_VIN[16]};
 
 size_t neg(uint8_t* out, size_t outMax, uint8_t sid, uint8_t nrc) {
   if (outMax < 3) return 0;
