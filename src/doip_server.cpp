@@ -406,6 +406,8 @@ void onEthEvent(WiFiEvent_t event) {
 }
 #endif
 
+void hsfzUdpTask(void* arg);
+
 bool init() {
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
   Network.onEvent(onEthEvent);
@@ -425,6 +427,10 @@ bool init() {
     Serial.println(F("[ETH] Static IP config failed"));
   }
   logEthAddress("init");
+  // Own task: ZGW Search waits only 100 ms for the UDP 6811 reply.
+  // The diagnostic TCP session must not delay that answer.
+  xTaskCreatePinnedToCore(hsfzUdpTask, "zgw_udp", 8192, nullptr, TASK_PRIO_CAN_RX,
+                          nullptr, TASK_CORE_NET);
   return true;
 }
 
@@ -442,34 +448,6 @@ void sendVehicleIdent(const sockaddr_in& to) {
   sendto(g_hsfzUdp, pkt, sizeof(pkt), 0, (sockaddr*)&to, sizeof(to));
 }
 
-// ZGW Search / ISTA send 00 00 00 00 00 11 to UDP 6811. The reply's source
-// address is the IP the tool shows. A copy also goes to the subnet broadcast
-// so a tool bound to port 6811 still sees the VIN.
-void handleHsfzUdp() {
-  if (g_hsfzUdp < 0) return;
-  for (;;) {
-    uint8_t buf[128];
-    sockaddr_in from = {};
-    socklen_t fl = sizeof(from);
-    const int n = recvfrom(g_hsfzUdp, buf, sizeof(buf), MSG_DONTWAIT,
-                           (sockaddr*)&from, &fl);
-    if (n < 6) return;
-    const uint32_t own = (uint32_t)ETH.localIP();
-    if (from.sin_addr.s_addr == own) continue;
-    const uint32_t len = ((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) |
-                         ((uint32_t)buf[2] << 8) | buf[3];
-    const uint16_t ctrl = (uint16_t)((buf[4] << 8) | buf[5]);
-    // 0x11 with a body is an announcement (including our own). Answer only
-    // identification requests and alive checks.
-    const bool request = (ctrl == 0x0011 && len == 0) || ctrl == 0x0012 || n <= 8;
-    if (!request) continue;
-    sendVehicleIdent(from);
-    Serial.printf("[ENET] ZGW search from %s:%u -> VIN %s\n",
-                  inet_ntoa(from.sin_addr), (unsigned)ntohs(from.sin_port),
-                  kBenchVin);
-  }
-}
-
 void announceVehicle() {
   if (g_hsfzUdp < 0) return;
   sockaddr_in to = {};
@@ -479,6 +457,72 @@ void announceVehicle() {
   sendVehicleIdent(to);
   to.sin_addr.s_addr = inet_addr("169.254.255.255");
   sendVehicleIdent(to);
+}
+
+// Probe used by ZGW_SEARCH and by Viaszx/BMW_ZGW_Search: 00 00 00 00 00 11
+// to the adapter broadcast, UDP 6811. The tool reads one reply and gives up
+// after 100 ms. The text must contain DIAGADR, BMWMAC and BMWVIN in that order.
+void hsfzUdpTask(void* /*arg*/) {
+  Serial.println(F("[ENET] ZGW search task started"));
+  uint32_t lastAnnounce = 0;
+  for (;;) {
+    if (!ETH.linkUp()) {
+      vTaskDelay(pdMS_TO_TICKS(200));
+      continue;
+    }
+    if (ETH.localIP() != ETH_LOCAL_IP || ETH.subnetMask() != ETH_SUBNET) {
+      applyStaticIp();
+      logEthAddress("udp");
+    }
+    if (g_hsfzUdp < 0) {
+      g_hsfzUdp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+      int reuse = 1;
+      setsockopt(g_hsfzUdp, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+      int bcast = 1;
+      setsockopt(g_hsfzUdp, SOL_SOCKET, SO_BROADCAST, &bcast, sizeof(bcast));
+      timeval tv = {};
+      tv.tv_sec = 0;
+      tv.tv_usec = 200000;
+      setsockopt(g_hsfzUdp, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+      sockaddr_in ha = {};
+      ha.sin_family = AF_INET;
+      ha.sin_port = htons(ENET_HSFZ_UDP_PORT);
+      ha.sin_addr.s_addr = htonl(INADDR_ANY);
+      if (bind(g_hsfzUdp, (sockaddr*)&ha, sizeof(ha)) != 0) {
+        Serial.println(F("[ENET] UDP 6811 bind failed"));
+        close(g_hsfzUdp);
+        g_hsfzUdp = -1;
+        vTaskDelay(pdMS_TO_TICKS(500));
+        continue;
+      }
+      Serial.printf("[ENET] ZGW search listening UDP :%u VIN %s\n",
+                    ENET_HSFZ_UDP_PORT, kBenchVin);
+    }
+
+    uint8_t buf[128];
+    sockaddr_in from = {};
+    socklen_t fl = sizeof(from);
+    const int n = recvfrom(g_hsfzUdp, buf, sizeof(buf), 0, (sockaddr*)&from, &fl);
+    if (n >= 6) {
+      const uint32_t own = (uint32_t)ETH.localIP();
+      const uint32_t len = ((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) |
+                           ((uint32_t)buf[2] << 8) | buf[3];
+      const uint16_t ctrl = (uint16_t)((buf[4] << 8) | buf[5]);
+      const bool request =
+          from.sin_addr.s_addr != own &&
+          ((ctrl == 0x0011 && len == 0) || ctrl == 0x0012 || n <= 8);
+      if (request) {
+        sendVehicleIdent(from);
+        Serial.printf("[ENET] ZGW search from %s:%u -> VIN %s\n",
+                      inet_ntoa(from.sin_addr), (unsigned)ntohs(from.sin_port),
+                      kBenchVin);
+      }
+    }
+    if (millis() - lastAnnounce > 2000) {
+      lastAnnounce = millis();
+      announceVehicle();
+    }
+  }
 }
 
 void serverTask(void* /*arg*/) {
@@ -531,31 +575,8 @@ void serverTask(void* /*arg*/) {
                 ETH.localIP().toString().c_str());
   Serial.printf("[ENET] HSFZ listening TCP :%u\n", ENET_HSFZ_TCP_PORT);
 
-  g_hsfzUdp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  setsockopt(g_hsfzUdp, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-  int bcast = 1;
-  setsockopt(g_hsfzUdp, SOL_SOCKET, SO_BROADCAST, &bcast, sizeof(bcast));
-  sockaddr_in ha = {};
-  ha.sin_family      = AF_INET;
-  ha.sin_port        = htons(ENET_HSFZ_UDP_PORT);
-  ha.sin_addr.s_addr = htonl(INADDR_ANY);
-  if (bind(g_hsfzUdp, (sockaddr*)&ha, sizeof(ha)) == 0) {
-    fcntl(g_hsfzUdp, F_SETFL, O_NONBLOCK);
-    Serial.printf("[ENET] ZGW search listening UDP :%u\n", ENET_HSFZ_UDP_PORT);
-  } else {
-    Serial.println(F("[ENET] UDP 6811 bind failed"));
-    close(g_hsfzUdp);
-    g_hsfzUdp = -1;
-  }
-
-  uint32_t lastAnnounce = 0;
   for (;;) {
     handleUdpDiscovery();
-    handleHsfzUdp();
-    if (millis() - lastAnnounce > 2000) {
-      lastAnnounce = millis();
-      announceVehicle();
-    }
 
     sockaddr_in ca = {};
     socklen_t cal = sizeof(ca);
