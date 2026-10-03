@@ -1,6 +1,6 @@
 /**
  * @file kcan_gw.h
- * @brief ENET/DoIP to one K-CAN. ISTA talks Ethernet; the module sits on TWAI.
+ * @brief ENET/DoIP to one K-CAN. The module sits on the MCP2515 adapter.
  *
  * Physical DoIP target 0x00XX is sent as BMW ISO-TP on CAN ID 0x6F1 with
  * address byte XX. The module answers on 0x600|XX. BDC 0x0010 stays local.

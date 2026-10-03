@@ -27,12 +27,12 @@ void canRxTask(void* /*arg*/) {
   CanFrame f;
   for (;;) {
     if (canBusReceive(CanChannel::Can1_Twai, f, 5)) {
-      if (!kcan_gw::onCanFrame(f)) {
-        obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/true);
-      }
+      obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/true);
     }
     if (canBusReceive(CanChannel::Can2_Mcp, f, 0)) {
-      obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/false);
+      if (!kcan_gw::onCanFrame(f)) {
+        obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/false);
+      }
     }
     vTaskDelay(pdMS_TO_TICKS(1));
   }

@@ -17,7 +17,7 @@ namespace {
 constexpr uint32_t kReqId = 0x6F1;
 constexpr uint8_t kTester = 0xF1;
 constexpr size_t kMaxPayload = 256;
-constexpr CanChannel kBus = CanChannel::Can1_Twai;
+constexpr CanChannel kBus = CanChannel::Can2_Mcp;
 
 QueueHandle_t g_q = nullptr;
 SemaphoreHandle_t g_lock = nullptr;
@@ -160,7 +160,7 @@ bool takeResponse(uint8_t* resp, size_t respMax, size_t& outLen, uint8_t& fromEc
 void init() {
   if (!g_q) g_q = xQueueCreate(48, sizeof(CanFrame));
   if (!g_lock) g_lock = xSemaphoreCreateMutex();
-  Serial.printf("[KCAN] gateway on TWAI @ %d kbit/s  req=0x6F1\n", TWAI_BITRATE_KBPS);
+  Serial.printf("[KCAN] gateway on MCP2515 @ %d kbit/s  req=0x6F1\n", MCP_BITRATE_KBPS);
 }
 
 bool onCanFrame(const CanFrame& frame) {

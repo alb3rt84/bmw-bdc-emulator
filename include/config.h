@@ -31,8 +31,9 @@
 #endif
 
 // ---------------------------------------------------------------------------
-// CAN2 — MCP2515 on HSPI (second domain bus @ 500 kbit/s)
-// Avoids conflict with Ethernet MDIO/MDC/TXD0 on VSPI pins 18/19/23.
+// CAN2 — MCP2515 module (the CAN adapter on the bench). ENET questions go out
+// here. HSPI avoids the Ethernet pins 18/19/23. Speed must match the module
+// K-CAN: 100, 125, 250 or 500. BATT48 / K-CAN8 is 500.
 // ---------------------------------------------------------------------------
 #ifndef PIN_MCP_CS
 #define PIN_MCP_CS 15
@@ -95,11 +96,14 @@
 #define DOIP_UDP_DISCOVERY_PORT 13400
 #define DOIP_TCP_DATA_PORT      13400
 #define ENET_HSFZ_TCP_PORT      6801
+#define ENET_HSFZ_UDP_PORT      6811
 
-// Static IP for bench (match your laptop subnet / E-Sys interface)
-#define ETH_LOCAL_IP   IPAddress(192, 168, 0, 10)
-#define ETH_GATEWAY    IPAddress(192, 168, 0, 1)
-#define ETH_SUBNET     IPAddress(255, 255, 255, 0)
+// ZGW Search and ISTA broadcast vehicle identification to
+// 169.254.255.255:6811. The ESP32 has to sit on that same link-local
+// network, otherwise the broadcast never arrives.
+#define ETH_LOCAL_IP   IPAddress(169, 254, 1, 20)
+#define ETH_GATEWAY    IPAddress(169, 254, 1, 20)
+#define ETH_SUBNET     IPAddress(255, 255, 0, 0)
 
 // ---------------------------------------------------------------------------
 // FreeRTOS task tuning

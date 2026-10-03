@@ -52,7 +52,7 @@ One UDS server (`uds_bdc`) answers on both media:
 | **ENET** | TCP **6801** (HSFZ). Tester `0xF4`, ECU address in the HSFZ target byte | Address `0x10` answered locally. Any other address is copied to the module K-CAN as `0x6F1` and the answer goes back to the tester |
 | **DoIP** | LA `0x0010`, TCP/UDP `:13400` | Same UDS handler, plus the same K-CAN forward for other logical addresses |
 
-The module under test sits on the ESP32 TWAI pins (GPIO 5 TX, GPIO 4 RX) through one TJA1050. Set `TWAI_BITRATE_KBPS` in `include/config.h` to that K-CAN (100, 125, 250 or 500). Laptop address `192.168.0.100`, ESP32 `192.168.0.10`. Point E-Sys / ISTA ENET at that IP, port **6801**.
+The module under test sits on the MCP2515 CAN adapter. SPI wiring to the ESP32 Ethernet board: CS GPIO15, SCK GPIO14, MOSI GPIO13, MISO GPIO12, INT GPIO33, common GND. Set `MCP_BITRATE_KBPS` in `include/config.h` to that K-CAN (100, 125, 250 or 500). BATT48 on K-CAN8 is 500. ESP32 address **169.254.1.20**, mask **255.255.0.0**. On the laptop set the Ethernet adapter to automatic, or manually to `169.254.1.1` with the same mask. ZGW Search broadcasts to `169.254.255.255` UDP **6811** and then opens TCP **6801**.
 
 Example CAN Single-Frame TesterPresent:
 ```
@@ -160,7 +160,7 @@ Crystal: code tries **8 MHz** then **16 MHz**.
 | CRS_DV | GPIO 27 |
 | PHY power (opt.) | set `ETH_PHY_POWER` in `config.h` |
 
-Static IP default: **192.168.0.10/24** (change in `include/config.h`).  
+Static IP default: **169.254.1.20**, mask **255.255.0.0** (change in `include/config.h`). ZGW Search only sees a gateway that answers the UDP 6811 broadcast on this link-local network.  
 ENET (E-Sys / ISTA cable): **TCP port 6801**, HSFZ. DoIP stays on **UDP + TCP port 13400**.
 
 ### Pin conflict summary
