@@ -440,13 +440,11 @@ void hsfzUdpTask(void* arg);
 
 bool beginEthernet(int phyAddr, int powerPin, eth_clock_mode_t clock) {
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
-  const bool ok = ETH.begin(ETH_PHY_TYPE, phyAddr, ETH_PHY_MDC, ETH_PHY_MDIO, powerPin, clock);
+  return ETH.begin(ETH_PHY_TYPE, phyAddr, ETH_PHY_MDC, ETH_PHY_MDIO, powerPin, clock);
 #else
-  const bool ok = ETH.begin((uint8_t)phyAddr, powerPin, ETH_PHY_MDC, ETH_PHY_MDIO,
-                            ETH_PHY_TYPE, clock);
+  return ETH.begin((uint8_t)phyAddr, powerPin, ETH_PHY_MDC, ETH_PHY_MDIO,
+                    ETH_PHY_TYPE, clock);
 #endif
-  if (!ok) ETH.end();
-  return ok;
 }
 
 // WT32-ETH01: GPIO16 enables the 50 MHz oscillator, GPIO0 receives that clock.
