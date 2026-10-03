@@ -16,9 +16,10 @@
 #include <IPAddress.h>
 
 // ---------------------------------------------------------------------------
-// CAN1 — ESP32 native TWAI. This is the K-CAN of the module under test
-// (one TJA1050). ENET/DoIP questions for any address other than BDC 0x0010
-// are copied onto this pair. Set the speed to that K-CAN: 100, 125, 250 or 500.
+// CAN1 — WT32-ETH01 native TWAI. This is the ENET → CAN converter.
+// ENET/DoIP questions for any address other than BDC 0x0010 are copied
+// onto this pair as BMW ISO-TP (0x6F1 / 0x600|ecu). Needs a transceiver
+// (TJA1050 / SN65HVD230): GPIO5 = TXD, GPIO4 = RXD. BATT48 / K-CAN8 is 500.
 // ---------------------------------------------------------------------------
 #ifndef PIN_TWAI_TX
 #define PIN_TWAI_TX 5

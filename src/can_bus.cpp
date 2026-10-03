@@ -182,6 +182,24 @@ bool canBusReceive(CanChannel ch, CanFrame& out, uint32_t timeoutMs) {
   return recvMcp(out);
 }
 
+void canBusRecover() {
+  if (!g_twaiOk) return;
+  static uint32_t lastCheck = 0;
+  const uint32_t now = millis();
+  if ((uint32_t)(now - lastCheck) < 500) return;
+  lastCheck = now;
+
+  twai_status_info_t status = {};
+  if (twai_get_status_info(&status) != ESP_OK) return;
+  if (status.state == TWAI_STATE_BUS_OFF) {
+    Serial.println(F("[CAN1] bus-off, recovering"));
+    twai_initiate_recovery();
+  } else if (status.state == TWAI_STATE_STOPPED) {
+    twai_start();
+    Serial.println(F("[CAN1] TWAI restarted"));
+  }
+}
+
 void canBusLogFrame(const char* prefix, CanChannel ch, const CanFrame& f) {
   Serial.printf("%s ch=%u id=0x%03X dlc=%u [", prefix, (unsigned)ch, f.id, f.dlc);
   for (uint8_t i = 0; i < f.dlc; i++) {
