@@ -52,7 +52,7 @@ One UDS server (`uds_bdc`) answers on both media:
 | **ENET** | TCP **6801** (HSFZ). Tester `0xF4`, ECU address in the HSFZ target byte | Address `0x10` answered locally. Any other address is copied to the module K-CAN as `0x6F1` and the answer goes back to the tester |
 | **DoIP** | LA `0x0010`, TCP/UDP `:13400` | Same UDS handler, plus the same K-CAN forward for other logical addresses |
 
-The module under test sits on the MCP2515 plugged into the ETH01 header. SPI: CS GPIO15, SCK GPIO14, MOSI GPIO13, MISO GPIO12, INT GPIO33 optional, VCC 5 V, common GND. ISTA addresses other than `0x10` are copied to that bus as `0x6F1` and the answer on `0x600|ecu` goes back over ENET. BATT48 on K-CAN8 is 500. ESP32 address **169.254.1.20**, mask **255.255.0.0**, VIN **WBA00000200000000**. With `HostIdentService = 255.255.255.255` EDIABAS sends six bytes `00 00 00 00 00 11` as a global broadcast on UDP **6811** and waits `TimeoutIdentService` (2 s in the bench ini). `VehicleProtocol = HSFZ,DoIP` keeps whichever answer arrives first, so both announcements use VIN **WBA00000200000000** and gateway address `0x0010`. The ESP32 still owns **169.254.1.20/16** and answers a tester on any other address on that cable. The reply must contain the text `DIAGADR`, `BMWMAC` and `BMWVIN`; the tool takes the IP from the sender of that reply. The laptop Ethernet adapter therefore has to show an address starting with `169.254` (automatic is enough; wait until it appears). The serial monitor should print `[ETH] Link up` and `[ENET] ZGW search listening UDP :6811`. Diagnostics then use TCP **6801**.
+The module under test sits on the MCP2515 plugged into the WT32-ETH01 header. Silkscreen: **IO15 = CS, IO14 = SCK, IO4 = MOSI, IO35 = MISO**, VCC on **5V**, common **GND**. INT stays open. ISTA addresses other than `0x10` are copied to that bus as `0x6F1` and the answer on `0x600|ecu` goes back over ENET. BATT48 on K-CAN8 is 500. ESP32 address **169.254.1.20**, mask **255.255.0.0**, VIN **WBA00000200000000**. With `HostIdentService = 255.255.255.255` EDIABAS sends six bytes `00 00 00 00 00 11` as a global broadcast on UDP **6811** and waits `TimeoutIdentService` (2 s in the bench ini). `VehicleProtocol = HSFZ,DoIP` keeps whichever answer arrives first, so both announcements use VIN **WBA00000200000000** and gateway address `0x0010`. The ESP32 still owns **169.254.1.20/16** and answers a tester on any other address on that cable. The reply must contain the text `DIAGADR`, `BMWMAC` and `BMWVIN`; the tool takes the IP from the sender of that reply. The laptop Ethernet adapter therefore has to show an address starting with `169.254` (automatic is enough; wait until it appears). The serial monitor should print `[ETH] Link up` and `[ENET] ZGW search listening UDP :6811`. Diagnostics then use TCP **6801**.
 
 Example CAN Single-Frame TesterPresent:
 ```
@@ -115,8 +115,8 @@ Cyclic wake frames only. The module under test uses the MCP2515 below.
 
 | ESP32 | Transceiver | Notes |
 |------:|-------------|-------|
-| GPIO 5 | TXD | `PIN_TWAI_TX` |
-| GPIO 4 | RXD | `PIN_TWAI_RX` |
+| RXD (IO5) | TXD | `PIN_TWAI_TX` |
+| 485_EN (IO33) | RXD | `PIN_TWAI_RX` |
 | 3V3 / 5V | VCC | per transceiver rating |
 | GND | GND | common ground |
 | — | CANH / CANL | optional second bus |
@@ -125,16 +125,19 @@ Cyclic wake frames only. The module under test uses the MCP2515 below.
 
 ISTA on the ENET cable, module on this board's CANH/CANL. SPI stays off GPIO 18, 19 and 23 (those belong to the LAN8720).
 
-| ETH01 | MCP2515 | Notes |
-|------:|---------|-------|
-| GPIO 15 | CS | |
-| GPIO 14 | SCK | |
-| GPIO 13 | MOSI / SI | |
-| GPIO 12 | MISO / SO | leave this pin low while the ESP32 resets |
-| GPIO 33 | INT | optional, polled if absent |
-| 5 V | VCC | TJA1050 modules need 5 V |
+The connector is labeled IO15, IO14, IO4 and IO35. There is no IO13 on this board. Leave IO12 empty.
+
+| Silkscreen | MCP2515 | Notes |
+|------------|---------|-------|
+| IO15 | CS | |
+| IO14 | SCK | |
+| IO4 | MOSI / SI | |
+| IO35 | MISO / SO | input only on the ESP32 |
+| 5V | VCC | TJA1050 modules need 5 V |
 | GND | GND | common with the module |
 | — | CANH / CANL | module K-CAN + **120 Ω** if this node is at the end |
+
+INT of the MCP2515 stays unconnected.
 
 SPI starts at 1 MHz. Crystal: code tries **8 MHz** then **16 MHz**. A live chip prints `[CAN2] MCP2515 ready`.
 
@@ -142,9 +145,9 @@ SPI starts at 1 MHz. Crystal: code tries **8 MHz** then **16 MHz**. A live chip 
 
 | ESP32 | LIN PHY | Notes |
 |------:|---------|-------|
-| GPIO 17 | TXD (MCU→PHY) | UART2 TX |
-| GPIO 16 | RXD (PHY→MCU) | UART2 RX |
-| GPIO 32 | /NSLP | driven HIGH = normal mode |
+| IO2 | TXD (MCU→PHY) | UART2 TX |
+| IO39 | RXD (PHY→MCU) | UART2 RX, input only |
+| CFG (IO32) | /NSLP | driven HIGH = normal mode |
 | — | LIN bus | single-wire to slaves |
 | 12 V | VS / INH rails | per PHY datasheet |
 | GND | GND | |
@@ -170,7 +173,7 @@ ENET (E-Sys / ISTA cable): **TCP port 6801**, HSFZ. DoIP stays on **UDP + TCP po
 ### Pin conflict summary
 
 LAN8720A owns GPIOs `0, 18, 19, 21, 22, 23, 25, 26, 27`. GPIO16 only enables the 50 MHz oscillator and must stay high.  
-MCP2515 uses HSPI `12–15`, TWAI `4–5`, LIN TX `2`, RX `35`, NSLP `32`. GPIO0 must not be pulled up: that pin is the 50 MHz clock input.
+MCP2515 uses silkscreen IO15, IO14, IO4 and IO35. Leave IO12 empty. TWAI uses RXD (IO5) and 485_EN (IO33). LIN TX is IO2, RX is IO39, NSLP is CFG (IO32). GPIO0 must not be pulled up: that pin is the 50 MHz clock input.
 
 ---
 

@@ -90,7 +90,9 @@ bool initMcp() {
   pinMode(PIN_MCP_CS, OUTPUT);
   digitalWrite(PIN_MCP_CS, HIGH);
   g_hspi.begin(PIN_MCP_SCK, PIN_MCP_MISO, PIN_MCP_MOSI, PIN_MCP_CS);
-  gpio_set_pull_mode((gpio_num_t)PIN_MCP_MISO, GPIO_FLOATING);
+  if (PIN_MCP_MISO >= 0 && PIN_MCP_MISO <= 33) {
+    gpio_set_pull_mode((gpio_num_t)PIN_MCP_MISO, GPIO_FLOATING);
+  }
   delay(50);
 
   const uint32_t clocks[] = {1000000UL, 4000000UL};
@@ -107,7 +109,7 @@ bool initMcp() {
                   (unsigned long)clock, canstat);
   }
   if (!seen) {
-    Serial.println(F("[CAN2] MCP2515 reset failed — VCC 5V, GND, CS15 SCK14 MOSI13 MISO12"));
+    Serial.println(F("[CAN2] MCP2515 reset failed — 5V GND, IO15=CS IO14=SCK IO4=MOSI IO35=MISO"));
     return false;
   }
 
