@@ -373,7 +373,7 @@ void handleTcpClient(int client) {
 
 bool applyStaticIp() {
   const bool ok = ETH.config(ETH_LOCAL_IP, ETH_GATEWAY, ETH_SUBNET);
-  if (ETH.localIP() == ETH_LOCAL_IP) g_ethReady = true;
+  if (ETH.linkUp() && ETH.localIP() == ETH_LOCAL_IP) g_ethReady = true;
   return ok;
 }
 
@@ -437,19 +437,34 @@ void onEthEvent(WiFiEvent_t event) {
 
 void hsfzUdpTask(void* arg);
 
+bool startEthernet() {
+  // Turn the oscillator on and leave it on. ETH.begin's power argument is a
+  // reset pin: on this board a low pulse kills the 50 MHz clock and lan87xx
+  // reports "power up timeout".
+  if (ETH_PHY_POWER >= 0) {
+    pinMode(ETH_PHY_POWER, OUTPUT);
+    digitalWrite(ETH_PHY_POWER, HIGH);
+    delay(400);
+  }
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  // phy address -1 asks the core to probe the LAN8720 (0 or 1).
+  return ETH.begin(ETH_PHY_TYPE, -1, ETH_PHY_MDC, ETH_PHY_MDIO, -1, ETH_CLK_MODE);
+#else
+  return ETH.begin(ETH_PHY_ADDR, -1, ETH_PHY_MDC, ETH_PHY_MDIO, ETH_PHY_TYPE, ETH_CLK_MODE);
+#endif
+}
+
 bool init() {
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
   Network.onEvent(onEthEvent);
-  const bool ok = ETH.begin(ETH_PHY_TYPE, ETH_PHY_ADDR, ETH_PHY_MDC, ETH_PHY_MDIO,
-                            ETH_PHY_POWER, ETH_CLK_MODE);
 #else
   WiFi.onEvent(onEthEvent);
-  const bool ok = ETH.begin(ETH_PHY_ADDR, ETH_PHY_POWER, ETH_PHY_MDC, ETH_PHY_MDIO,
-                            ETH_PHY_TYPE, ETH_CLK_MODE);
 #endif
+  const bool ok = startEthernet();
 
   if (!ok) {
-    Serial.println(F("[ETH] begin() failed — check LAN8720A wiring / 50 MHz clock"));
+    Serial.println(F("[ETH] begin() failed — LAN8720 did not answer on MDIO"));
+    Serial.println(F("[ETH] GPIO16 must stay high (50 MHz oscillator). Cable LEDs stay off until this succeeds."));
   }
 
   if (!applyStaticIp()) {

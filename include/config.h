@@ -78,8 +78,8 @@
 #define ETH_PHY_ADDR 1
 #endif
 #ifndef ETH_PHY_POWER
-// WT32-ETH01 (GERUI): GPIO16 turns the LAN8720 oscillator on. Use -1 if the
-// board has no PHY enable pin.
+// WT32-ETH01 (GERUI): GPIO16 enables the 50 MHz oscillator. It is not a PHY
+// reset pin. The driver must not pulse it low, or MDIO times out.
 #define ETH_PHY_POWER 16
 #endif
 #ifndef ETH_PHY_MDC
