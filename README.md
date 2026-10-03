@@ -165,8 +165,8 @@ ENET (E-Sys / ISTA cable): **TCP port 6801**, HSFZ. DoIP stays on **UDP + TCP po
 
 ### Pin conflict summary
 
-LAN8720A owns GPIOs `0, 18, 19, 21, 22, 23, 25, 26, 27`.  
-MCP2515 uses HSPI `12–15`, TWAI `4–5`, LIN `16–17 + 32` — no overlap with RMII.
+LAN8720A owns GPIOs `0, 18, 19, 21, 22, 23, 25, 26, 27`. GPIO16 only enables the 50 MHz oscillator and must stay high.  
+MCP2515 uses HSPI `12–15`, TWAI `4–5`, LIN TX `17`, RX `35`, NSLP `32`.
 
 ---
 
