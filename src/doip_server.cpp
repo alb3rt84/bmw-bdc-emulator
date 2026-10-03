@@ -18,8 +18,6 @@
 
 namespace doip {
 
-namespace {
-
 constexpr uint8_t kDoipVersion    = 0x02;
 constexpr uint8_t kDoipInvVersion = 0xFD;
 
@@ -44,7 +42,8 @@ int  g_hsfzUdp  = -1;
 
 // ZGW Search parses this exact 50-byte layout:
 // DIAGADR10 + BMWMAC + 12 hex digits + BMWVIN + 17-character VIN.
-static const char kBenchVin[] = "WBADEMOGCHASSIS01";
+static const char kBenchVin[] = BENCH_VIN;
+static_assert(sizeof(kBenchVin) == 18, "bench VIN must be 17 characters");
 
 void buildVehicleIdent(uint8_t out[50]) {
   memcpy(out, "DIAGADR10BMWMAC", 15);
@@ -343,20 +342,35 @@ void handleTcpClient(int client) {
   Serial.println(F("[DoIP] TCP client disconnected"));
 }
 
+bool applyStaticIp() {
+  const bool ok = ETH.config(ETH_LOCAL_IP, ETH_GATEWAY, ETH_SUBNET);
+  if (ETH.localIP() == ETH_LOCAL_IP) g_ethReady = true;
+  return ok;
+}
+
+void logEthAddress(const char* why) {
+  Serial.printf("[ETH] %s IP %s mask %s link %s\n", why,
+                ETH.localIP().toString().c_str(),
+                ETH.subnetMask().toString().c_str(),
+                ETH.linkUp() ? "up" : "down");
+}
+
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
 void onEthEvent(arduino_event_id_t event, arduino_event_info_t info) {
   (void)info;
   switch (event) {
     case ARDUINO_EVENT_ETH_START:
       ETH.setHostname("bmw-bdc-emu");
+      applyStaticIp();
       break;
     case ARDUINO_EVENT_ETH_CONNECTED:
       Serial.println(F("[ETH] Link up"));
+      applyStaticIp();
+      logEthAddress("link");
       break;
     case ARDUINO_EVENT_ETH_GOT_IP:
-      Serial.print(F("[ETH] IP: "));
-      Serial.println(ETH.localIP());
-      g_ethReady = true;
+      logEthAddress("got ip");
+      applyStaticIp();
       break;
     case ARDUINO_EVENT_ETH_DISCONNECTED:
       g_ethReady = false;
@@ -371,14 +385,16 @@ void onEthEvent(WiFiEvent_t event) {
   switch (event) {
     case ARDUINO_EVENT_ETH_START:
       ETH.setHostname("bmw-bdc-emu");
+      applyStaticIp();
       break;
     case ARDUINO_EVENT_ETH_CONNECTED:
       Serial.println(F("[ETH] Link up"));
+      applyStaticIp();
+      logEthAddress("link");
       break;
     case ARDUINO_EVENT_ETH_GOT_IP:
-      Serial.print(F("[ETH] IP: "));
-      Serial.println(ETH.localIP());
-      g_ethReady = true;
+      logEthAddress("got ip");
+      applyStaticIp();
       break;
     case ARDUINO_EVENT_ETH_DISCONNECTED:
       g_ethReady = false;
@@ -389,8 +405,6 @@ void onEthEvent(WiFiEvent_t event) {
   }
 }
 #endif
-
-}  // namespace
 
 bool init() {
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
@@ -407,28 +421,14 @@ bool init() {
     Serial.println(F("[ETH] begin() failed — check LAN8720A wiring / 50 MHz clock"));
   }
 
-  if (!ETH.config(ETH_LOCAL_IP, ETH_GATEWAY, ETH_SUBNET)) {
-    Serial.println(F("[ETH] Static IP config failed (DHCP may still work)"));
+  if (!applyStaticIp()) {
+    Serial.println(F("[ETH] Static IP config failed"));
   }
+  logEthAddress("init");
   return true;
 }
 
-// ZGW Search / ISTA send 00 00 00 00 00 11 to UDP 6811 (often as a
-// broadcast to 169.254.255.255). The reply's source address is the IP
-// the tool shows; the payload carries the VIN.
-void handleHsfzUdp() {
-  if (g_hsfzUdp < 0) return;
-  uint8_t buf[64];
-  sockaddr_in from = {};
-  socklen_t fl = sizeof(from);
-  const int n = recvfrom(g_hsfzUdp, buf, sizeof(buf), MSG_DONTWAIT,
-                         (sockaddr*)&from, &fl);
-  if (n < 6) return;
-  const uint32_t len = ((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) |
-                       ((uint32_t)buf[2] << 8) | buf[3];
-  const uint16_t ctrl = (uint16_t)((buf[4] << 8) | buf[5]);
-  if (ctrl != 0x0011 || len != 0) return;
-
+void sendVehicleIdent(const sockaddr_in& to) {
   uint8_t ident[50];
   buildVehicleIdent(ident);
   uint8_t pkt[56];
@@ -439,15 +439,62 @@ void handleHsfzUdp() {
   pkt[4] = 0x00;
   pkt[5] = 0x11;
   memcpy(pkt + 6, ident, 50);
-  sendto(g_hsfzUdp, pkt, sizeof(pkt), 0, (sockaddr*)&from, fl);
-  Serial.printf("[ENET] ZGW search from %s -> VIN %s\n",
-                inet_ntoa(from.sin_addr), kBenchVin);
+  sendto(g_hsfzUdp, pkt, sizeof(pkt), 0, (sockaddr*)&to, sizeof(to));
+}
+
+// ZGW Search / ISTA send 00 00 00 00 00 11 to UDP 6811. The reply's source
+// address is the IP the tool shows. A copy also goes to the subnet broadcast
+// so a tool bound to port 6811 still sees the VIN.
+void handleHsfzUdp() {
+  if (g_hsfzUdp < 0) return;
+  for (;;) {
+    uint8_t buf[128];
+    sockaddr_in from = {};
+    socklen_t fl = sizeof(from);
+    const int n = recvfrom(g_hsfzUdp, buf, sizeof(buf), MSG_DONTWAIT,
+                           (sockaddr*)&from, &fl);
+    if (n < 6) return;
+    const uint32_t own = (uint32_t)ETH.localIP();
+    if (from.sin_addr.s_addr == own) continue;
+    const uint32_t len = ((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) |
+                         ((uint32_t)buf[2] << 8) | buf[3];
+    const uint16_t ctrl = (uint16_t)((buf[4] << 8) | buf[5]);
+    // 0x11 with a body is an announcement (including our own). Answer only
+    // identification requests and alive checks.
+    const bool request = (ctrl == 0x0011 && len == 0) || ctrl == 0x0012 || n <= 8;
+    if (!request) continue;
+    sendVehicleIdent(from);
+    Serial.printf("[ENET] ZGW search from %s:%u -> VIN %s\n",
+                  inet_ntoa(from.sin_addr), (unsigned)ntohs(from.sin_port),
+                  kBenchVin);
+  }
+}
+
+void announceVehicle() {
+  if (g_hsfzUdp < 0) return;
+  sockaddr_in to = {};
+  to.sin_family = AF_INET;
+  to.sin_port = htons(ENET_HSFZ_UDP_PORT);
+  to.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+  sendVehicleIdent(to);
+  to.sin_addr.s_addr = inet_addr("169.254.255.255");
+  sendVehicleIdent(to);
 }
 
 void serverTask(void* /*arg*/) {
   Serial.println(F("[DoIP] Server task waiting for Ethernet..."));
-  while (!g_ethReady) {
-    vTaskDelay(pdMS_TO_TICKS(200));
+  for (int i = 0; i < 30 && !g_ethReady; ++i) {
+    if (ETH.linkUp()) applyStaticIp();
+    if (!g_ethReady) vTaskDelay(pdMS_TO_TICKS(200));
+  }
+  if (!g_ethReady) {
+    logEthAddress("still down");
+    Serial.println(F("[ETH] No link. Check the cable and that GPIO16 stays the PHY enable."));
+    while (!ETH.linkUp()) {
+      vTaskDelay(pdMS_TO_TICKS(500));
+    }
+    applyStaticIp();
+    logEthAddress("late link");
   }
 
   g_udpSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -501,9 +548,14 @@ void serverTask(void* /*arg*/) {
     g_hsfzUdp = -1;
   }
 
+  uint32_t lastAnnounce = 0;
   for (;;) {
     handleUdpDiscovery();
     handleHsfzUdp();
+    if (millis() - lastAnnounce > 2000) {
+      lastAnnounce = millis();
+      announceVehicle();
+    }
 
     sockaddr_in ca = {};
     socklen_t cal = sizeof(ca);

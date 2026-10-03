@@ -59,7 +59,8 @@
 #define PIN_LIN_TX 17
 #endif
 #ifndef PIN_LIN_RX
-#define PIN_LIN_RX 16
+// GPIO16 is the WT32-ETH01 PHY oscillator enable. UART must not take it.
+#define PIN_LIN_RX 35
 #endif
 #ifndef PIN_LIN_NSLP
 #define PIN_LIN_NSLP 32  // /NSLP HIGH = normal mode
@@ -102,8 +103,11 @@
 // 169.254.255.255:6811. The ESP32 has to sit on that same link-local
 // network, otherwise the broadcast never arrives.
 #define ETH_LOCAL_IP   IPAddress(169, 254, 1, 20)
-#define ETH_GATEWAY    IPAddress(169, 254, 1, 20)
+#define ETH_GATEWAY    IPAddress(0, 0, 0, 0)
 #define ETH_SUBNET     IPAddress(255, 255, 0, 0)
+// Check-digit-valid bench VIN. Letters I, O and Q are illegal in a VIN;
+// ZGW Search drops the reply when the 17 characters after BMWVIN contain one.
+#define BENCH_VIN      "WBA00000200000000"
 
 // ---------------------------------------------------------------------------
 // FreeRTOS task tuning

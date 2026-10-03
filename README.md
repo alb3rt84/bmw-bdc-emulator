@@ -52,7 +52,7 @@ One UDS server (`uds_bdc`) answers on both media:
 | **ENET** | TCP **6801** (HSFZ). Tester `0xF4`, ECU address in the HSFZ target byte | Address `0x10` answered locally. Any other address is copied to the module K-CAN as `0x6F1` and the answer goes back to the tester |
 | **DoIP** | LA `0x0010`, TCP/UDP `:13400` | Same UDS handler, plus the same K-CAN forward for other logical addresses |
 
-The module under test sits on the MCP2515 CAN adapter. SPI wiring to the ESP32 Ethernet board: CS GPIO15, SCK GPIO14, MOSI GPIO13, MISO GPIO12, INT GPIO33, common GND. Set `MCP_BITRATE_KBPS` in `include/config.h` to that K-CAN (100, 125, 250 or 500). BATT48 on K-CAN8 is 500. ESP32 address **169.254.1.20**, mask **255.255.0.0**. On the laptop set the Ethernet adapter to automatic, or manually to `169.254.1.1` with the same mask. ZGW Search broadcasts to `169.254.255.255` UDP **6811** and then opens TCP **6801**.
+The module under test sits on the MCP2515 CAN adapter. SPI wiring to the ESP32 Ethernet board: CS GPIO15, SCK GPIO14, MOSI GPIO13, MISO GPIO12, INT GPIO33, common GND. Set `MCP_BITRATE_KBPS` in `include/config.h` to that K-CAN (100, 125, 250 or 500). BATT48 on K-CAN8 is 500. ESP32 address **169.254.1.20**, mask **255.255.0.0**, VIN **WBA00000200000000**. On the laptop leave the Ethernet adapter on automatic; it must show an address starting with `169.254` before ZGW Search can send its broadcast to `169.254.255.255` UDP **6811**. The serial monitor should print `[ETH] Link up` and `[ENET] ZGW search listening UDP :6811`. Diagnostics then use TCP **6801**.
 
 Example CAN Single-Frame TesterPresent:
 ```
