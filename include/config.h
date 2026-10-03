@@ -16,10 +16,8 @@
 #include <IPAddress.h>
 
 // ---------------------------------------------------------------------------
-// CAN1 — WT32-ETH01 native TWAI. This is the ENET → CAN converter.
-// ENET/DoIP questions for any address other than BDC 0x0010 are copied
-// onto this pair as BMW ISO-TP (0x6F1 / 0x600|ecu). Needs a transceiver
-// (TJA1050 / SN65HVD230): GPIO5 = TXD, GPIO4 = RXD. BATT48 / K-CAN8 is 500.
+// CAN1 — ESP32 native TWAI. Optional second bus (cyclic wake frames).
+// GPIO5 = TXD, GPIO4 = RXD, plus a transceiver. Not the ENET converter.
 // ---------------------------------------------------------------------------
 #ifndef PIN_TWAI_TX
 #define PIN_TWAI_TX 5
@@ -32,9 +30,10 @@
 #endif
 
 // ---------------------------------------------------------------------------
-// CAN2 — MCP2515 module (the CAN adapter on the bench). ENET questions go out
-// here. HSPI avoids the Ethernet pins 18/19/23. Speed must match the module
-// K-CAN: 100, 125, 250 or 500. BATT48 / K-CAN8 is 500.
+// CAN2 — MCP2515 on the ETH01 header. This is the ENET → CAN converter.
+// ENET/DoIP questions for any address other than BDC 0x0010 go out here as
+// BMW ISO-TP (0x6F1 / 0x600|ecu). HSPI stays off the Ethernet pins 18/19/23.
+// BATT48 / K-CAN8 is 500. VCC of a TJA1050 module is 5 V; GND common.
 // ---------------------------------------------------------------------------
 #ifndef PIN_MCP_CS
 #define PIN_MCP_CS 15

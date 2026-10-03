@@ -17,8 +17,8 @@ namespace {
 constexpr uint32_t kReqId = 0x6F1;
 constexpr uint8_t kTester = 0xF1;
 constexpr size_t kMaxPayload = 256;
-// WT32-ETH01 native CAN. MCP2515 stays a second bus and is not the converter.
-constexpr CanChannel kBus = CanChannel::Can1_Twai;
+// Module K-CAN is the MCP2515 wired to the ETH01 header.
+constexpr CanChannel kBus = CanChannel::Can2_Mcp;
 
 QueueHandle_t g_q = nullptr;
 SemaphoreHandle_t g_lock = nullptr;
@@ -161,8 +161,8 @@ bool takeResponse(uint8_t* resp, size_t respMax, size_t& outLen, uint8_t& fromEc
 void init() {
   if (!g_q) g_q = xQueueCreate(48, sizeof(CanFrame));
   if (!g_lock) g_lock = xSemaphoreCreateMutex();
-  Serial.printf("[KCAN] ETH01 converter TWAI TX=%d RX=%d @ %d kbit/s  req=0x6F1\n",
-                PIN_TWAI_TX, PIN_TWAI_RX, TWAI_BITRATE_KBPS);
+  Serial.printf("[KCAN] ETH01 converter MCP2515 CS=%d SCK=%d MOSI=%d MISO=%d @ %d kbit/s\n",
+                PIN_MCP_CS, PIN_MCP_SCK, PIN_MCP_MOSI, PIN_MCP_MISO, MCP_BITRATE_KBPS);
 }
 
 bool onCanFrame(const CanFrame& frame) {
@@ -189,7 +189,7 @@ size_t transact(uint8_t ecuAddr, const uint8_t* req, size_t reqLen,
   const uint32_t deadline = millis() + KCAN_GW_TIMEOUT_MS;
   size_t n = 0;
   uint8_t from = ecuAddr;
-  Serial.printf("[KCAN] TX ecu 0x%02X %u bytes on ETH01 CAN\n", ecuAddr, (unsigned)reqLen);
+  Serial.printf("[KCAN] TX ecu 0x%02X %u bytes on MCP2515\n", ecuAddr, (unsigned)reqLen);
   const bool sent = sendRequest(ecuAddr, req, reqLen, deadline);
   if (sent) {
     size_t got = 0;

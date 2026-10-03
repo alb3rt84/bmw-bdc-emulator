@@ -6,8 +6,8 @@ ESP32-based Body Domain Controller / Central Gateway emulator for **on-the-table
 
 | Subsystem | Implementation |
 |-----------|----------------|
-| **CAN1** | ETH01 TWAI @ 500 kbit/s — ENET converter to the module |
-| **CAN2** | MCP2515 (SPI / HSPI) @ 500 kbit/s |
+| **CAN1** | ESP32 TWAI @ 500 kbit/s — cyclic wake frames |
+| **CAN2** | MCP2515 @ 500 kbit/s — ENET converter to the module |
 | **Wake / KL15** | FreeRTOS cyclic TX: `0x510`, `0x12F`, `0x34A`, `0x2F8` |
 | **Live signals** | RPM `0x0A5`, Speed `0x1A1`, Coolant `0x1D0`, Fuel `0x349` (editable) |
 | **LIN Master** | UART2 @ 19200 + break/header scheduler (TJA1020) |
@@ -52,7 +52,7 @@ One UDS server (`uds_bdc`) answers on both media:
 | **ENET** | TCP **6801** (HSFZ). Tester `0xF4`, ECU address in the HSFZ target byte | Address `0x10` answered locally. Any other address is copied to the module K-CAN as `0x6F1` and the answer goes back to the tester |
 | **DoIP** | LA `0x0010`, TCP/UDP `:13400` | Same UDS handler, plus the same K-CAN forward for other logical addresses |
 
-The module under test sits on the ETH01 CAN (TWAI): GPIO5 TXD, GPIO4 RXD, through a TJA1050 or SN65HVD230, 500 kbit/s. ISTA addresses other than `0x10` are copied to that bus as `0x6F1` and the answer on `0x600|ecu` goes back over ENET. MCP2515 (CS GPIO15, SCK GPIO14, MOSI GPIO13, MISO GPIO12, INT GPIO33) is only the optional second bus for the cyclic wake frames. BATT48 on K-CAN8 is 500. ESP32 address **169.254.1.20**, mask **255.255.0.0**, VIN **WBA00000200000000**. With `HostIdentService = 255.255.255.255` EDIABAS sends six bytes `00 00 00 00 00 11` as a global broadcast on UDP **6811** and waits `TimeoutIdentService` (2 s in the bench ini). `VehicleProtocol = HSFZ,DoIP` keeps whichever answer arrives first, so both announcements use VIN **WBA00000200000000** and gateway address `0x0010`. The ESP32 still owns **169.254.1.20/16** and answers a tester on any other address on that cable. The reply must contain the text `DIAGADR`, `BMWMAC` and `BMWVIN`; the tool takes the IP from the sender of that reply. The laptop Ethernet adapter therefore has to show an address starting with `169.254` (automatic is enough; wait until it appears). The serial monitor should print `[ETH] Link up` and `[ENET] ZGW search listening UDP :6811`. Diagnostics then use TCP **6801**.
+The module under test sits on the MCP2515 plugged into the ETH01 header. SPI: CS GPIO15, SCK GPIO14, MOSI GPIO13, MISO GPIO12, INT GPIO33 optional, VCC 5 V, common GND. ISTA addresses other than `0x10` are copied to that bus as `0x6F1` and the answer on `0x600|ecu` goes back over ENET. BATT48 on K-CAN8 is 500. ESP32 address **169.254.1.20**, mask **255.255.0.0**, VIN **WBA00000200000000**. With `HostIdentService = 255.255.255.255` EDIABAS sends six bytes `00 00 00 00 00 11` as a global broadcast on UDP **6811** and waits `TimeoutIdentService` (2 s in the bench ini). `VehicleProtocol = HSFZ,DoIP` keeps whichever answer arrives first, so both announcements use VIN **WBA00000200000000** and gateway address `0x0010`. The ESP32 still owns **169.254.1.20/16** and answers a tester on any other address on that cable. The reply must contain the text `DIAGADR`, `BMWMAC` and `BMWVIN`; the tool takes the IP from the sender of that reply. The laptop Ethernet adapter therefore has to show an address starting with `169.254` (automatic is enough; wait until it appears). The serial monitor should print `[ETH] Link up` and `[ENET] ZGW search listening UDP :6811`. Diagnostics then use TCP **6801**.
 
 Example CAN Single-Frame TesterPresent:
 ```
@@ -109,9 +109,9 @@ Or edit the table in `src/bmw_frames.cpp`.
 > Power KOMBI / HU / LIN slaves from a proper bench PSU (KL30). Share GND with the ESP32.
 > Use a CAN transceiver (SN65HVD230 / TJA1050) on TWAI TX/RX — the ESP32 pins are **not** CAN-H/L.
 
-### CAN1 — ETH01 converter (TWAI + transceiver)
+### CAN1 — TWAI + transceiver
 
-ISTA on the ENET cable, module on this pair. GPIO5 and GPIO4 are broken out on the WT32-ETH01 header.
+Cyclic wake frames only. The module under test uses the MCP2515 below.
 
 | ESP32 | Transceiver | Notes |
 |------:|-------------|-------|
@@ -119,22 +119,24 @@ ISTA on the ENET cable, module on this pair. GPIO5 and GPIO4 are broken out on t
 | GPIO 4 | RXD | `PIN_TWAI_RX` |
 | 3V3 / 5V | VCC | per transceiver rating |
 | GND | GND | common ground |
-| — | CANH / CANL | module K-CAN + **120 Ω** if this node is at the end |
+| — | CANH / CANL | optional second bus |
 
-### CAN2 — MCP2515 module (HSPI)
+### CAN2 — MCP2515, ENET converter
 
-| ESP32 | MCP2515 | Notes |
+ISTA on the ENET cable, module on this board's CANH/CANL. SPI stays off GPIO 18, 19 and 23 (those belong to the LAN8720).
+
+| ETH01 | MCP2515 | Notes |
 |------:|---------|-------|
 | GPIO 15 | CS | |
-| GPIO 14 | SCK | HSPI |
-| GPIO 12 | MISO | strapping pin — keep LOW at reset |
-| GPIO 13 | MOSI | |
-| GPIO 33 | INT | optional |
-| 3V3 | VCC | most modules are 3V3 logic |
-| GND | GND | |
-| — | CANH / CANL | second domain bus + termination |
+| GPIO 14 | SCK | |
+| GPIO 13 | MOSI / SI | |
+| GPIO 12 | MISO / SO | leave this pin low while the ESP32 resets |
+| GPIO 33 | INT | optional, polled if absent |
+| 5 V | VCC | TJA1050 modules need 5 V |
+| GND | GND | common with the module |
+| — | CANH / CANL | module K-CAN + **120 Ω** if this node is at the end |
 
-Crystal: code tries **8 MHz** then **16 MHz**.
+SPI starts at 1 MHz. Crystal: code tries **8 MHz** then **16 MHz**. A live chip prints `[CAN2] MCP2515 ready`.
 
 ### LIN Master — TJA1020 / TJA1021
 
