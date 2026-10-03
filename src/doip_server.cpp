@@ -40,6 +40,27 @@ bool g_ethReady = false;
 int  g_udpSock  = -1;
 int  g_tcpSock  = -1;
 int  g_enetSock = -1;
+int  g_hsfzUdp  = -1;
+
+// ZGW Search parses this exact 50-byte layout:
+// DIAGADR10 + BMWMAC + 12 hex digits + BMWVIN + 17-character VIN.
+static const char kBenchVin[] = "WBADEMOGCHASSIS01";
+
+void buildVehicleIdent(uint8_t out[50]) {
+  memcpy(out, "DIAGADR10BMWMAC", 15);
+  const String mac = ETH.macAddress();
+  size_t hex = 0;
+  for (unsigned i = 0; i < mac.length() && hex < 12; ++i) {
+    char c = mac[i];
+    if (c == ':' || c == '-') continue;
+    if (c >= 'a' && c <= 'f') c = (char)(c - 'a' + 'A');
+    out[15 + hex] = (uint8_t)c;
+    ++hex;
+  }
+  while (hex < 12) out[15 + hex++] = '0';
+  memcpy(out + 27, "BMWVIN", 6);
+  memcpy(out + 33, kBenchVin, 17);
+}
 
 void writeU16Be(uint8_t* p, uint16_t v) {
   p[0] = (uint8_t)(v >> 8);
@@ -182,8 +203,9 @@ void handleHsfzClient(int client) {
       continue;
     }
     if (ctrl == 0x0011 && len == 0) {
-      static const char vin[] = "WBADEMOGCHASSIS01";
-      sendHsfz(client, 0x0011, reinterpret_cast<const uint8_t*>(vin), 17);
+      uint8_t ident[50];
+      buildVehicleIdent(ident);
+      sendHsfz(client, 0x0011, ident, sizeof(ident));
       continue;
     }
     if (ctrl != 0x0001 || len < 2) {
@@ -391,6 +413,37 @@ bool init() {
   return true;
 }
 
+// ZGW Search / ISTA send 00 00 00 00 00 11 to UDP 6811 (often as a
+// broadcast to 169.254.255.255). The reply's source address is the IP
+// the tool shows; the payload carries the VIN.
+void handleHsfzUdp() {
+  if (g_hsfzUdp < 0) return;
+  uint8_t buf[64];
+  sockaddr_in from = {};
+  socklen_t fl = sizeof(from);
+  const int n = recvfrom(g_hsfzUdp, buf, sizeof(buf), MSG_DONTWAIT,
+                         (sockaddr*)&from, &fl);
+  if (n < 6) return;
+  const uint32_t len = ((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) |
+                       ((uint32_t)buf[2] << 8) | buf[3];
+  const uint16_t ctrl = (uint16_t)((buf[4] << 8) | buf[5]);
+  if (ctrl != 0x0011 || len != 0) return;
+
+  uint8_t ident[50];
+  buildVehicleIdent(ident);
+  uint8_t pkt[56];
+  pkt[0] = 0;
+  pkt[1] = 0;
+  pkt[2] = 0;
+  pkt[3] = 50;
+  pkt[4] = 0x00;
+  pkt[5] = 0x11;
+  memcpy(pkt + 6, ident, 50);
+  sendto(g_hsfzUdp, pkt, sizeof(pkt), 0, (sockaddr*)&from, fl);
+  Serial.printf("[ENET] ZGW search from %s -> VIN %s\n",
+                inet_ntoa(from.sin_addr), kBenchVin);
+}
+
 void serverTask(void* /*arg*/) {
   Serial.println(F("[DoIP] Server task waiting for Ethernet..."));
   while (!g_ethReady) {
@@ -431,8 +484,26 @@ void serverTask(void* /*arg*/) {
                 ETH.localIP().toString().c_str());
   Serial.printf("[ENET] HSFZ listening TCP :%u\n", ENET_HSFZ_TCP_PORT);
 
+  g_hsfzUdp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  setsockopt(g_hsfzUdp, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+  int bcast = 1;
+  setsockopt(g_hsfzUdp, SOL_SOCKET, SO_BROADCAST, &bcast, sizeof(bcast));
+  sockaddr_in ha = {};
+  ha.sin_family      = AF_INET;
+  ha.sin_port        = htons(ENET_HSFZ_UDP_PORT);
+  ha.sin_addr.s_addr = htonl(INADDR_ANY);
+  if (bind(g_hsfzUdp, (sockaddr*)&ha, sizeof(ha)) == 0) {
+    fcntl(g_hsfzUdp, F_SETFL, O_NONBLOCK);
+    Serial.printf("[ENET] ZGW search listening UDP :%u\n", ENET_HSFZ_UDP_PORT);
+  } else {
+    Serial.println(F("[ENET] UDP 6811 bind failed"));
+    close(g_hsfzUdp);
+    g_hsfzUdp = -1;
+  }
+
   for (;;) {
     handleUdpDiscovery();
+    handleHsfzUdp();
 
     sockaddr_in ca = {};
     socklen_t cal = sizeof(ca);
