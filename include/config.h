@@ -56,7 +56,8 @@
 // LIN Master — UART2 + TJA1020 (or TJA1021) transceiver
 // ---------------------------------------------------------------------------
 #ifndef PIN_LIN_TX
-#define PIN_LIN_TX 17
+// GPIO17 is the alternate RMII clock output. Keep LIN off it.
+#define PIN_LIN_TX 2
 #endif
 #ifndef PIN_LIN_RX
 // GPIO16 is the WT32-ETH01 PHY oscillator enable. UART must not take it.
