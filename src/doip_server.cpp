@@ -9,14 +9,20 @@
 #include "uds_bdc.h"
 
 #include <ETH.h>
+#include <Preferences.h>
 #include <WiFi.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
 #include <driver/gpio.h>
+#include <esp_system.h>
 #include <lwip/netif.h>
 #include <lwip/sockets.h>
+
+// Set after a full PHY scan fails, so one power cycle does not reboot forever.
+// Cleared by a real power loss.
+RTC_DATA_ATTR static uint8_t g_ethScanDone = 0;
 
 namespace doip {
 
@@ -474,6 +480,8 @@ bool startEthernet() {
   };
   // Address 1 is the Wireless-Tag WT32-ETH01. Plenty of clones answer at 0.
   // GPIO17-out is the boards that have no oscillator of their own.
+  // A failed ETH.begin() keeps the EMAC interrupt and the "ETH_DEF" netif,
+  // so the next begin() in the same boot cannot run. One attempt per boot.
   const Attempt attempts[] = {
       {1, -1, ETH_CLOCK_GPIO0_IN, "PHY 1, clock in GPIO0"},
       {0, -1, ETH_CLOCK_GPIO0_IN, "PHY 0, clock in GPIO0"},
@@ -482,17 +490,38 @@ bool startEthernet() {
       {1, -1, ETH_CLOCK_GPIO17_OUT, "PHY 1, clock out GPIO17"},
       {0, -1, ETH_CLOCK_GPIO17_OUT, "PHY 0, clock out GPIO17"},
   };
+  const int nAttempts = (int)(sizeof(attempts) / sizeof(attempts[0]));
 
-  for (const Attempt& attempt : attempts) {
-    releaseRmiiClockPin();
-    enableOscillator();
-    Serial.printf("[ETH] try %s\n", attempt.name);
-    if (beginEthernet(attempt.addr, attempt.power, attempt.clock)) {
-      Serial.printf("[ETH] PHY up: %s\n", attempt.name);
-      return true;
-    }
-    Serial.printf("[ETH] no PHY: %s\n", attempt.name);
+  if (g_ethScanDone) return false;
+
+  Preferences prefs;
+  prefs.begin("bdceth", false);
+  int idx = prefs.getInt("try", 0);
+  if (idx < 0 || idx >= nAttempts) idx = 0;
+
+  const Attempt& attempt = attempts[idx];
+  releaseRmiiClockPin();
+  enableOscillator();
+  Serial.printf("[ETH] try %d/%d %s\n", idx + 1, nAttempts, attempt.name);
+  if (beginEthernet(attempt.addr, attempt.power, attempt.clock)) {
+    prefs.putInt("try", idx);
+    prefs.end();
+    Serial.printf("[ETH] PHY up: %s\n", attempt.name);
+    return true;
   }
+  Serial.printf("[ETH] no PHY: %s\n", attempt.name);
+  const int next = idx + 1;
+  if (next < nAttempts) {
+    prefs.putInt("try", next);
+    prefs.end();
+    Serial.printf("[ETH] reboot to try %d/%d\n", next + 1, nAttempts);
+    Serial.flush();
+    delay(200);
+    esp_restart();
+  }
+  prefs.putInt("try", 0);
+  prefs.end();
+  g_ethScanDone = 1;
   return false;
 }
 
