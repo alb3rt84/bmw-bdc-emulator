@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
+#include <driver/gpio.h>
 #include <lwip/netif.h>
 #include <lwip/sockets.h>
 
@@ -437,21 +438,64 @@ void onEthEvent(WiFiEvent_t event) {
 
 void hsfzUdpTask(void* arg);
 
-bool startEthernet() {
-  // Turn the oscillator on and leave it on. ETH.begin's power argument is a
-  // reset pin: on this board a low pulse kills the 50 MHz clock and lan87xx
-  // reports "power up timeout".
-  if (ETH_PHY_POWER >= 0) {
-    pinMode(ETH_PHY_POWER, OUTPUT);
-    digitalWrite(ETH_PHY_POWER, HIGH);
-    delay(400);
-  }
+bool beginEthernet(int phyAddr, int powerPin, eth_clock_mode_t clock) {
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
-  // phy address -1 asks the core to probe the LAN8720 (0 or 1).
-  return ETH.begin(ETH_PHY_TYPE, -1, ETH_PHY_MDC, ETH_PHY_MDIO, -1, ETH_CLK_MODE);
+  const bool ok = ETH.begin(ETH_PHY_TYPE, phyAddr, ETH_PHY_MDC, ETH_PHY_MDIO, powerPin, clock);
 #else
-  return ETH.begin(ETH_PHY_ADDR, -1, ETH_PHY_MDC, ETH_PHY_MDIO, ETH_PHY_TYPE, ETH_CLK_MODE);
+  const bool ok = ETH.begin((uint8_t)phyAddr, powerPin, ETH_PHY_MDC, ETH_PHY_MDIO,
+                            ETH_PHY_TYPE, clock);
 #endif
+  if (!ok) ETH.end();
+  return ok;
+}
+
+// WT32-ETH01: GPIO16 enables the 50 MHz oscillator, GPIO0 receives that clock.
+// GPIO0 is a strapping pin and boots with its pull-up still on. That load
+// stops the oscillator, MDIO reads 0xFFFF and lan87xx reports power up timeout.
+void releaseRmiiClockPin() {
+  gpio_reset_pin(GPIO_NUM_0);
+  gpio_set_direction(GPIO_NUM_0, GPIO_MODE_INPUT);
+  gpio_pullup_dis(GPIO_NUM_0);
+  gpio_pulldown_dis(GPIO_NUM_0);
+  gpio_set_pull_mode(GPIO_NUM_0, GPIO_FLOATING);
+}
+
+void enableOscillator() {
+  gpio_reset_pin(GPIO_NUM_16);
+  gpio_set_direction(GPIO_NUM_16, GPIO_MODE_OUTPUT);
+  gpio_set_level(GPIO_NUM_16, 1);
+  delay(300);
+}
+
+bool startEthernet() {
+  struct Attempt {
+    int addr;
+    int power;
+    eth_clock_mode_t clock;
+    const char* name;
+  };
+  // Address 1 is the Wireless-Tag WT32-ETH01. Plenty of clones answer at 0.
+  // GPIO17-out is the boards that have no oscillator of their own.
+  const Attempt attempts[] = {
+      {1, -1, ETH_CLOCK_GPIO0_IN, "PHY 1, clock in GPIO0"},
+      {0, -1, ETH_CLOCK_GPIO0_IN, "PHY 0, clock in GPIO0"},
+      {1, 16, ETH_CLOCK_GPIO0_IN, "PHY 1, enable GPIO16, clock in GPIO0"},
+      {0, 16, ETH_CLOCK_GPIO0_IN, "PHY 0, enable GPIO16, clock in GPIO0"},
+      {1, -1, ETH_CLOCK_GPIO17_OUT, "PHY 1, clock out GPIO17"},
+      {0, -1, ETH_CLOCK_GPIO17_OUT, "PHY 0, clock out GPIO17"},
+  };
+
+  for (const Attempt& attempt : attempts) {
+    releaseRmiiClockPin();
+    enableOscillator();
+    Serial.printf("[ETH] try %s\n", attempt.name);
+    if (beginEthernet(attempt.addr, attempt.power, attempt.clock)) {
+      Serial.printf("[ETH] PHY up: %s\n", attempt.name);
+      return true;
+    }
+    Serial.printf("[ETH] no PHY: %s\n", attempt.name);
+  }
+  return false;
 }
 
 bool init() {
@@ -463,8 +507,8 @@ bool init() {
   const bool ok = startEthernet();
 
   if (!ok) {
-    Serial.println(F("[ETH] begin() failed — LAN8720 did not answer on MDIO"));
-    Serial.println(F("[ETH] GPIO16 must stay high (50 MHz oscillator). Cable LEDs stay off until this succeeds."));
+    Serial.println(F("[ETH] LAN8720 did not answer. Disconnect the USB adapter from IO0"));
+    Serial.println(F("[ETH] (a pull-up on IO0 stops the 50 MHz clock) and power-cycle the board."));
   }
 
   if (!applyStaticIp()) {
