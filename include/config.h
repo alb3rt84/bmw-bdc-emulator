@@ -16,39 +16,42 @@
 #include <IPAddress.h>
 
 // ---------------------------------------------------------------------------
-// CAN1 — ESP32 native TWAI. This is the K-CAN of the module under test
-// (one TJA1050). ENET/DoIP questions for any address other than BDC 0x0010
-// are copied onto this pair. Set the speed to that K-CAN: 100, 125, 250 or 500.
+// CAN1 — ESP32 native TWAI. Optional second bus (cyclic wake frames).
+// Header silkscreen: TXD of the transceiver on RXD (IO5), RXD on 485_EN (IO33).
 // ---------------------------------------------------------------------------
 #ifndef PIN_TWAI_TX
 #define PIN_TWAI_TX 5
 #endif
 #ifndef PIN_TWAI_RX
-#define PIN_TWAI_RX 4
+#define PIN_TWAI_RX 33
 #endif
 #ifndef TWAI_BITRATE_KBPS
 #define TWAI_BITRATE_KBPS 500
 #endif
 
 // ---------------------------------------------------------------------------
-// CAN2 — MCP2515 module (the CAN adapter on the bench). ENET questions go out
-// here. HSPI avoids the Ethernet pins 18/19/23. Speed must match the module
-// K-CAN: 100, 125, 250 or 500. BATT48 / K-CAN8 is 500.
+// CAN2 — MCP2515 on the WT32-ETH01 header. This is the ENET → CAN converter.
+// The connector has no IO13. Pins below are the silkscreen names:
+//   IO15 = CS, IO14 = SCK, IO4 = MOSI, IO35 = MISO.
+// IO12 stays free: it selects 1.8 V flash if something pulls it high at reset.
+// ENET/DoIP questions for any address other than BDC 0x0010 go out here as
+// BMW ISO-TP (0x6F1 / 0x600|ecu). BATT48 / K-CAN8 is 500.
+// VCC of a TJA1050 module is 5 V; GND common. INT is polled, leave it open.
 // ---------------------------------------------------------------------------
 #ifndef PIN_MCP_CS
-#define PIN_MCP_CS 15
+#define PIN_MCP_CS 15    // silkscreen IO15
 #endif
 #ifndef PIN_MCP_INT
-#define PIN_MCP_INT 33   // optional interrupt; set -1 to poll only
+#define PIN_MCP_INT -1   // not wired; the driver polls
 #endif
 #ifndef PIN_MCP_SCK
-#define PIN_MCP_SCK 14
+#define PIN_MCP_SCK 14   // silkscreen IO14
 #endif
 #ifndef PIN_MCP_MISO
-#define PIN_MCP_MISO 12
+#define PIN_MCP_MISO 35  // silkscreen IO35, input only
 #endif
 #ifndef PIN_MCP_MOSI
-#define PIN_MCP_MOSI 13
+#define PIN_MCP_MOSI 4   // silkscreen IO4
 #endif
 #define MCP_BITRATE_KBPS 500
 
@@ -60,8 +63,8 @@
 #define PIN_LIN_TX 2
 #endif
 #ifndef PIN_LIN_RX
-// GPIO16 is the WT32-ETH01 PHY oscillator enable. UART must not take it.
-#define PIN_LIN_RX 35
+// GPIO16 is the oscillator enable. IO35 is MCP2515 MISO. IO39 is input only.
+#define PIN_LIN_RX 39
 #endif
 #ifndef PIN_LIN_NSLP
 #define PIN_LIN_NSLP 32  // /NSLP HIGH = normal mode

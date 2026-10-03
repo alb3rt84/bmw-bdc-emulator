@@ -8,6 +8,7 @@
 
 #include <SPI.h>
 #include <string.h>
+#include <driver/gpio.h>
 #include <driver/twai.h>
 #include <mcp2515.h>
 
@@ -64,31 +65,75 @@ bool initTwai() {
   return true;
 }
 
-bool initMcp() {
-  g_hspi.begin(PIN_MCP_SCK, PIN_MCP_MISO, PIN_MCP_MOSI, PIN_MCP_CS);
-  // autowp-mcp2515: MCP2515(CS, spiHz, SPIClass*)
-  g_mcp = new MCP2515(PIN_MCP_CS, 10000000UL, &g_hspi);
+// Dupont wires between the ETH01 header and a MCP2515 board often fail at
+// 10 MHz. 1 MHz then 4 MHz. After RESET, CANSTAT opmode bits are 100.
+bool mcpAnswers(uint32_t hz, uint8_t& canstat) {
+  SPISettings settings(hz, MSBFIRST, SPI_MODE0);
+  g_hspi.beginTransaction(settings);
+  digitalWrite(PIN_MCP_CS, LOW);
+  g_hspi.transfer(0xC0);
+  digitalWrite(PIN_MCP_CS, HIGH);
+  g_hspi.endTransaction();
+  delay(10);
 
-  if (g_mcp->reset() != MCP2515::ERROR_OK) {
-    Serial.println(F("[CAN2] MCP2515 reset failed — check wiring / power"));
+  g_hspi.beginTransaction(settings);
+  digitalWrite(PIN_MCP_CS, LOW);
+  g_hspi.transfer(0x03);
+  g_hspi.transfer(0x0E);
+  canstat = g_hspi.transfer(0x00);
+  digitalWrite(PIN_MCP_CS, HIGH);
+  g_hspi.endTransaction();
+  return (canstat & 0xE0) == 0x80;
+}
+
+bool initMcp() {
+  pinMode(PIN_MCP_CS, OUTPUT);
+  digitalWrite(PIN_MCP_CS, HIGH);
+  g_hspi.begin(PIN_MCP_SCK, PIN_MCP_MISO, PIN_MCP_MOSI, PIN_MCP_CS);
+  if (PIN_MCP_MISO >= 0 && PIN_MCP_MISO <= 33) {
+    gpio_set_pull_mode((gpio_num_t)PIN_MCP_MISO, GPIO_FLOATING);
+  }
+  delay(50);
+
+  const uint32_t clocks[] = {1000000UL, 4000000UL};
+  uint8_t canstat = 0xFF;
+  uint32_t hz = clocks[0];
+  bool seen = false;
+  for (uint32_t clock : clocks) {
+    if (mcpAnswers(clock, canstat)) {
+      hz = clock;
+      seen = true;
+      break;
+    }
+    Serial.printf("[CAN2] MCP2515 silent @ %lu Hz, CANSTAT=0x%02X\n",
+                  (unsigned long)clock, canstat);
+  }
+  if (!seen) {
+    Serial.println(F("[CAN2] MCP2515 reset failed — 5V GND, IO15=CS IO14=SCK IO4=MOSI IO35=MISO"));
     return false;
   }
-  if (g_mcp->setBitrate(mcpSpeedFromKbps(MCP_BITRATE_KBPS), MCP_8MHZ) !=
-      MCP2515::ERROR_OK) {
-    // Retry with 16 MHz crystal (some modules ship 16 MHz)
-    if (g_mcp->setBitrate(mcpSpeedFromKbps(MCP_BITRATE_KBPS), MCP_16MHZ) !=
-        MCP2515::ERROR_OK) {
+
+  g_mcp = new MCP2515(PIN_MCP_CS, hz, &g_hspi);
+  if (g_mcp->reset() != MCP2515::ERROR_OK) {
+    Serial.printf("[CAN2] MCP2515 reset failed, CANSTAT=0x%02X\n", canstat);
+    return false;
+  }
+  const CAN_SPEED speed = mcpSpeedFromKbps(MCP_BITRATE_KBPS);
+  CAN_CLOCK crystal = MCP_8MHZ;
+  if (g_mcp->setBitrate(speed, MCP_8MHZ) != MCP2515::ERROR_OK) {
+    if (g_mcp->setBitrate(speed, MCP_16MHZ) != MCP2515::ERROR_OK) {
       Serial.println(F("[CAN2] MCP2515 setBitrate failed"));
       return false;
     }
-    Serial.println(F("[CAN2] MCP2515 using 16 MHz crystal"));
+    crystal = MCP_16MHZ;
   }
   if (g_mcp->setNormalMode() != MCP2515::ERROR_OK) {
     Serial.println(F("[CAN2] MCP2515 setNormalMode failed"));
     return false;
   }
-  Serial.printf("[CAN2] MCP2515 ready @ %d kbit/s (CS=%d SCK=%d)\n",
-                MCP_BITRATE_KBPS, PIN_MCP_CS, PIN_MCP_SCK);
+  Serial.printf("[CAN2] MCP2515 ready @ %d kbit/s, %s crystal, SPI %lu Hz (CS=%d SCK=%d MOSI=%d MISO=%d)\n",
+                MCP_BITRATE_KBPS, crystal == MCP_16MHZ ? "16 MHz" : "8 MHz",
+                (unsigned long)hz, PIN_MCP_CS, PIN_MCP_SCK, PIN_MCP_MOSI, PIN_MCP_MISO);
   return true;
 }
 
@@ -180,6 +225,24 @@ bool canBusReceive(CanChannel ch, CanFrame& out, uint32_t timeoutMs) {
   // Both: prefer TWAI with timeout, then MCP poll
   if (recvTwai(out, timeoutMs)) return true;
   return recvMcp(out);
+}
+
+void canBusRecover() {
+  if (!g_twaiOk) return;
+  static uint32_t lastCheck = 0;
+  const uint32_t now = millis();
+  if ((uint32_t)(now - lastCheck) < 500) return;
+  lastCheck = now;
+
+  twai_status_info_t status = {};
+  if (twai_get_status_info(&status) != ESP_OK) return;
+  if (status.state == TWAI_STATE_BUS_OFF) {
+    Serial.println(F("[CAN1] bus-off, recovering"));
+    twai_initiate_recovery();
+  } else if (status.state == TWAI_STATE_STOPPED) {
+    twai_start();
+    Serial.println(F("[CAN1] TWAI restarted"));
+  }
 }
 
 void canBusLogFrame(const char* prefix, CanChannel ch, const CanFrame& f) {

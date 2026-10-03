@@ -26,14 +26,19 @@ void canRxTask(void* /*arg*/) {
   Serial.println(F("[CAN] RX + OBD-ISO-TP task started"));
   CanFrame f;
   for (;;) {
-    if (canBusReceive(CanChannel::Can1_Twai, f, 5)) {
+    // MCP2515 is the converter. Drain its queue before the local OBD
+    // responder, so a module answer is not dropped.
+    if (canBusReceive(CanChannel::Can2_Mcp, f, 1)) {
+      do {
+        if (!kcan_gw::onCanFrame(f)) {
+          obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/false);
+        }
+      } while (canBusReceive(CanChannel::Can2_Mcp, f, 0));
+    }
+    if (canBusReceive(CanChannel::Can1_Twai, f, 0)) {
       obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/true);
     }
-    if (canBusReceive(CanChannel::Can2_Mcp, f, 0)) {
-      if (!kcan_gw::onCanFrame(f)) {
-        obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/false);
-      }
-    }
+    canBusRecover();
     vTaskDelay(pdMS_TO_TICKS(1));
   }
 }

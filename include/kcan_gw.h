@@ -1,6 +1,6 @@
 /**
  * @file kcan_gw.h
- * @brief ENET/DoIP to one K-CAN. The module sits on the MCP2515 adapter.
+ * @brief ENET/DoIP to the MCP2515 on the ETH01 (HSPI).
  *
  * Physical DoIP target 0x00XX is sent as BMW ISO-TP on CAN ID 0x6F1 with
  * address byte XX. The module answers on 0x600|XX. BDC 0x0010 stays local.
@@ -18,7 +18,7 @@ namespace kcan_gw {
 void init();
 
 /**
- * Feed a frame from the module K-CAN (TWAI). Returns true when an active
+ * Feed a frame from the MCP2515. Returns true when an active
  * transaction consumed it.
  */
 bool onCanFrame(const CanFrame& frame);

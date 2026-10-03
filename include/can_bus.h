@@ -41,3 +41,6 @@ bool canBusReceive(CanChannel ch, CanFrame& out, uint32_t timeoutMs = 0);
 
 /** Print frame to Serial (debug only — avoid in hot paths). */
 void canBusLogFrame(const char* prefix, CanChannel ch, const CanFrame& f);
+
+/** Restart TWAI after bus-off so the ETH01 converter comes back. */
+void canBusRecover();
