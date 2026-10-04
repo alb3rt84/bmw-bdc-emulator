@@ -61,7 +61,8 @@ constexpr uint16_t kPtPowerModeRes         = 0x4004;
 constexpr size_t kAnnounceLen = 33;
 // FA is up to 480 bytes. The largest G20 SVK (HU_MGU, 22 F1 01) is 543 bytes
 // including the UDS header, so the cap has to clear that.
-// 62 3F 06 plus a length, the vehicle order, and zeros through index 842.
+// 62 3F 06 is a length, version 3 at byte 2, then the order. The tail
+// repeats 1119 through index 842.
 constexpr size_t kUdsRespMax = 896;
 
 constexpr uint16_t kLaGateway = uds_bdc::kLogicalAddress;
@@ -304,9 +305,112 @@ bool serveHsfzControl(int client, uint16_t ctrl, uint32_t len) {
   return false;
 }
 
+// Positive UDS payload one fitted ECU would send for this request.
+// A functional broadcast gets no negative response: callers skip a 0 result
+// instead of answering from 0xDF.
+size_t answerFitted(uint8_t addr, const uint8_t* uds, size_t udsLen,
+                    uint8_t* resp, size_t respMax) {
+  size_t n = uds_bdc::answerVin(uds, udsLen, resp, respMax);
+  if (n > 0) return n;
+  n = vehicle_svt::answerSvk(addr, uds, udsLen, resp, respMax);
+  if (n > 0) return n;
+  if (uds == nullptr || udsLen == 0) return 0;
+
+  const uint8_t sid = uds[0];
+  if (sid == 0x22 && udsLen >= 3) {
+    const uint16_t did = (uint16_t)((uds[1] << 8) | uds[2]);
+    // The vehicle order lives in the VCM master only.
+    if (did == 0x3F06 && addr != uds_bdc::kCanEcuAddr) return 0;
+  }
+  if (sid == 0x2E && addr != uds_bdc::kCanEcuAddr) return 0;
+
+  const bool shared = sid == 0x10 || sid == 0x3E || sid == 0x22 || sid == 0x14 ||
+                      sid == 0x19 || sid == 0x2E;
+  if (!shared) return 0;
+  n = uds_bdc::handleRequest(uds, udsLen, resp, respMax);
+  if (n >= 3 && resp[0] == 0x7F) return 0;
+  return n;
+}
+
+// HSFZ diagnostic reply: 6-byte header, source, target, then the UDS payload.
+// The payload stays in the caller's buffer so a 29-ECU scan does not put
+// another 900-byte frame on the stack.
+bool sendHsfzUds(int fd, uint8_t ecu, uint8_t tester, const uint8_t* uds, size_t udsLen) {
+  const size_t bodyLen = 2 + udsLen;
+  uint8_t hdr[8];
+  hdr[0] = (uint8_t)((bodyLen >> 24) & 0xFF);
+  hdr[1] = (uint8_t)((bodyLen >> 16) & 0xFF);
+  hdr[2] = (uint8_t)((bodyLen >> 8) & 0xFF);
+  hdr[3] = (uint8_t)(bodyLen & 0xFF);
+  hdr[4] = 0x00;
+  hdr[5] = 0x01;
+  hdr[6] = ecu;
+  hdr[7] = tester;
+  if (!sendFull(fd, hdr, 8)) return false;
+  if (udsLen == 0) return true;
+  return sendFull(fd, uds, udsLen);
+}
+
+// ISTA learns the control-unit tree from a broadcast to 0xDF. Each fitted
+// ECU answers in its own frame. Address 0xDF itself stays silent.
+// The DoIP task serves one client at a time, so one reply buffer is enough.
+uint8_t* fittedReplyBuf() {
+  static uint8_t resp[kUdsRespMax];
+  return resp;
+}
+
+int fanoutHsfz(int client, uint8_t tester, const uint8_t* uds, size_t udsLen) {
+  uint8_t addrs[40];
+  const size_t n = vehicle_svt::listAddrs(addrs, sizeof(addrs));
+  uint8_t* resp = fittedReplyBuf();
+  int sent = 0;
+  for (size_t i = 0; i < n; i++) {
+    const size_t respLen = answerFitted(addrs[i], uds, udsLen, resp, kUdsRespMax);
+    if (respLen == 0) continue;
+    logVcmRead(addrs[i], uds, udsLen, resp, respLen);
+    if (!sendHsfzUds(client, addrs[i], tester, resp, respLen)) break;
+    sent++;
+  }
+  return sent;
+}
+
+int fanoutDoip(int client, uint16_t tester, const uint8_t* uds, size_t udsLen) {
+  uint8_t addrs[40];
+  const size_t n = vehicle_svt::listAddrs(addrs, sizeof(addrs));
+  uint8_t* resp = fittedReplyBuf();
+  // This socket is non-blocking for the idle poll. A full SVT reply is a
+  // few kilobytes, so the burst goes out on a blocking socket.
+  const int flags = fcntl(client, F_GETFL, 0);
+  if (flags >= 0) fcntl(client, F_SETFL, flags & ~O_NONBLOCK);
+  int sent = 0;
+  for (size_t i = 0; i < n; i++) {
+    const size_t respLen = answerFitted(addrs[i], uds, udsLen, resp, kUdsRespMax);
+    if (respLen == 0) continue;
+    logVcmRead(addrs[i], uds, udsLen, resp, respLen);
+    uint8_t hdr[12];
+    buildHeader(hdr, kPtDiagnosticMessage, (uint32_t)(4 + respLen));
+    writeU16Be(hdr + 8, addrs[i]);
+    writeU16Be(hdr + 10, tester);
+    if (!sendFull(client, hdr, sizeof(hdr))) break;
+    if (respLen > 0 && !sendFull(client, resp, respLen)) break;
+    sent++;
+  }
+  if (flags >= 0) fcntl(client, F_SETFL, flags);
+  return sent;
+}
+
+void logFunctionalRead(const char* dest, const uint8_t* uds, size_t udsLen, int sent) {
+  if (uds == nullptr || udsLen < 1 || uds[0] != 0x22) return;
+  const uint8_t hi = udsLen > 1 ? uds[1] : 0;
+  const uint8_t lo = udsLen > 2 ? uds[2] : 0;
+  notef("[SVT] %s 22 %02X%02X -> %d ECU", dest, hi, lo, sent);
+}
+
 // BMW ENET: TCP 6801, HSFZ. Tester (usually 0xF4) sends control 0x0001.
 // Gateway echoes control 0x0002, then answers with control 0x0001 and
 // source/target swapped. Address byte is the same one used on CAN 0x6F1.
+// Destination 0xDF is functional: one response per SVT address, each with
+// that ECU as the source. 0xDF is never the source of a frame.
 void handleHsfzClient(int client) {
   timeval tv = {};
   tv.tv_sec = 30;
@@ -342,24 +446,26 @@ void handleHsfzClient(int client) {
 
     sendHsfz(client, 0x0002, body, len);
 
+    if (dst == 0xDF) {
+      const int sent = fanoutHsfz(client, src, uds, udsLen);
+      logFunctionalRead("DF", uds, udsLen, sent);
+      continue;
+    }
+
     uint8_t resp[kUdsRespMax];
     size_t respLen = uds_bdc::answerVin(uds, udsLen, resp, sizeof(resp));
     uint8_t respSrc = dst;
     if (respLen > 0) {
-      // Functional 0xDF has no address of its own. Answer as the gateway.
-      if (dst == 0xDF) respSrc = uds_bdc::kCanEcuAddr;
       char vin[18];
       bench_vin::copy(vin);
       notef("[UDS] VIN %s for 0x%02X", vin, dst);
-    } else if (dst != 0xDF &&
-               (respLen = vehicle_svt::answerSvk(dst, uds, udsLen, resp, sizeof(resp))) > 0) {
+    } else if ((respLen = vehicle_svt::answerSvk(dst, uds, udsLen, resp, sizeof(resp))) > 0) {
       const char* ecuName = vehicle_svt::name(dst);
       notef("[SVT] F101 0x%02X %s", dst, ecuName ? ecuName : "");
     } else if (dst == uds_bdc::kCanEcuAddr ||
-               (dst != 0xDF && vehicle_svt::name(dst) != nullptr) ||
+               vehicle_svt::name(dst) != nullptr ||
                (udsLen >= 1 && uds[0] == 0x3E)) {
       respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
-      if (dst == 0xDF) respSrc = uds_bdc::kCanEcuAddr;
     } else {
       uint8_t from = dst;
       respLen = kcan_gw::transact(dst, uds, udsLen, resp, sizeof(resp), &from);
@@ -372,7 +478,7 @@ void handleHsfzClient(int client) {
       }
     }
     if (respLen == 0) continue;
-    logVcmRead(dst == 0xDF ? uds_bdc::kCanEcuAddr : dst, uds, udsLen, resp, respLen);
+    logVcmRead(dst, uds, udsLen, resp, respLen);
 
     uint8_t out[2 + kUdsRespMax];
     out[0] = respSrc;
@@ -452,32 +558,39 @@ void handleTcpClient(int client) {
       ack[12] = 0x00;
       send(client, ack, sizeof(ack), 0);
 
+      if (functional) {
+        const int sent = fanoutDoip(client, sa, uds, udsLen);
+        logFunctionalRead("E400", uds, udsLen, sent);
+        continue;
+      }
+
       uint8_t resp[kUdsRespMax];
       size_t respLen = uds_bdc::answerVin(uds, udsLen, resp, sizeof(resp));
       uint16_t respSa = ta;
 
       if (respLen > 0) {
-        respSa = (toBdc || functional) ? kLaGateway : ta;
+        respSa = toBdc ? kLaGateway : ta;
         char vin[18];
         bench_vin::copy(vin);
         notef("[UDS] VIN %s for LA 0x%04X", vin, ta);
-      } else if (!functional && ta <= 0x00FF &&
+      } else if (ta <= 0x00FF &&
                  (respLen = vehicle_svt::answerSvk((uint8_t)ta, uds, udsLen, resp,
                                                    sizeof(resp))) > 0) {
         respSa = ta;
         const char* ecuName = vehicle_svt::name((uint8_t)ta);
         notef("[SVT] F101 0x%02X %s", (unsigned)ta, ecuName ? ecuName : "");
-      } else if (!functional && ta <= 0x00FF && vehicle_svt::name((uint8_t)ta) != nullptr) {
+      } else if (ta <= 0x00FF && vehicle_svt::name((uint8_t)ta) != nullptr) {
         respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
         respSa = ta;
       } else if (toBdc || (udsLen >= 1 && uds[0] == 0x3E)) {
         respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
         respSa = kLaGateway;
       } else {
-        const uint8_t ecu = functional ? 0xDF : (uint8_t)ta;
+        const uint8_t ecu = (uint8_t)ta;
         uint8_t fromEcu = ecu;
         respLen = kcan_gw::transact(ecu, uds, udsLen, resp, sizeof(resp), &fromEcu);
-        respSa = functional ? fromEcu : ta;
+        respSa = ta;
+        if (respLen > 0) respSa = fromEcu;
         if (respLen == 0 && udsLen > 0) {
           // ISO 14229 NRC 0x25 — gateway did not get an answer from the module.
           resp[0] = 0x7F;

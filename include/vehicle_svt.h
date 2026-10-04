@@ -23,6 +23,13 @@ const char* name(uint8_t addr);
 size_t answerSvk(uint8_t addr, const uint8_t* req, size_t reqLen,
                  uint8_t* out, size_t outMax);
 
+/**
+ * Diagnostic addresses of the fitted ECUs, in SVT order.
+ * ISTA discovers them by broadcasting to 0xDF; each address then answers
+ * with its own source byte. @return how many addresses were copied.
+ */
+size_t listAddrs(uint8_t* out, size_t max);
+
 /** Factory G20 list, replaced when a saved SVT is present. */
 void load();
 
