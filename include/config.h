@@ -122,7 +122,7 @@
 #define TASK_STACK_CAN_RX       4096
 #define TASK_STACK_LIN          3072
 #define TASK_STACK_DOIP         12288
-#define TASK_STACK_PC_LINK      4096
+#define TASK_STACK_PC_LINK      8192
 
 #define TASK_PRIO_CAN_CYCLIC    5   // highest — time-critical wake / ignition
 #define TASK_PRIO_CAN_RX        4

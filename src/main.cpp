@@ -20,6 +20,7 @@
 #include "obd_can.h"
 #include "pc_link.h"
 #include "uds_bdc.h"
+#include "vehicle_fa.h"
 
 namespace {
 
@@ -59,6 +60,7 @@ void setup() {
   }
 
   bench_vin::load();
+  vehicle_fa::load();
   uds_bdc::init();
   kcan_gw::init();
   obd_can::init();

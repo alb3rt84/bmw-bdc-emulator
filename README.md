@@ -71,7 +71,7 @@ Python/Tkinter window (`pc_companion/gui_app.py`) talks to the ZGW at `169.254.1
 ```bat
 cd pc_companion
 pip install -r requirements.txt
-pyinstaller --noconfirm --onefile --windowed --name BmwBdcCompanion gui_app.py
+pyinstaller --noconfirm --onefile --windowed --name BmwBdcCompanion --add-data "data;data" gui_app.py
 ```
 
 Details: [`pc_companion/README.md`](pc_companion/README.md).
@@ -82,7 +82,7 @@ Details: [`pc_companion/README.md`](pc_companion/README.md).
 |----|--------|---------|------------------|
 | `0x12F` | 100 ms | Klemmen KL30 + KL15 | `45 FF 45 FF FF FF FF FF` |
 
-The PC window (`pc_companion/gui_app.py`) switches KL30 and KL15. KL30 only is byte `41`, KL15 only is byte `44`, both off is byte `00` (bytes 0 and 2). ISTA reads ignition on ENET TCP **6811** with `00 00 00 00 00 10` and expects `00 00 00 01 00 10` plus `04` (KL15 on) or `00` (KL15 off). The same answer is given if that control word arrives on TCP 6801. The KL30 switch changes CAN `0x12F`. The VIN typed in the window is the one in the ENET/DoIP announcement and in UDS F190 for every ECU address. It has to be the full 17-character VIN. E-Sys `requestFaFromMaster` reads FA with `22 3F 06` on VCM `0x10`; the emulator answers with a bench order (series `F015`, type `KR23`, time `0418`). The clamp byte on ENET TCP 6811 is the same byte as CAN `0x12F`.
+The PC window (`pc_companion/gui_app.py`) switches KL30 and KL15. KL30 only is byte `41`, KL15 only is byte `44`, both off is byte `00` (bytes 0 and 2). ISTA reads ignition on ENET TCP **6811** with `00 00 00 00 00 10` and expects `00 00 00 01 00 10` plus `04` (KL15 on) or `00` (KL15 off). The same answer is given if that control word arrives on TCP 6801. The KL30 switch changes CAN `0x12F`. The VIN typed in the window is the one in the ENET/DoIP announcement and in UDS F190 for every ECU address. It has to be the full 17-character VIN. E-Sys `requestFaFromMaster` reads FA with `22 3F 06` on VCM `0x10`. The window loads `data/FA.xml` and `data/VCM.xml` and pushes that order to the emulator. The bundled file is an F15 template (series `F015`, type `KR23`, time `0418`, I-Stufe `F025-18-03-520`) so the service returns a version-3 FA. Load the FA saved from the car when the order itself has to match. I-Stufe is stored and written to the log; it is not served on a UDS identifier. The clamp byte on ENET TCP 6811 is the same byte as CAN `0x12F`.
 
 ## FreeRTOS mapping
 

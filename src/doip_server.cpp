@@ -58,6 +58,9 @@ constexpr uint16_t kPtPowerModeRes         = 0x4004;
 // ISO 13400 announcement is 33 bytes once the VIN/GID sync byte is included.
 // EDIABAS drops a shorter DoIP reply and then has no VIN.
 constexpr size_t kAnnounceLen = 33;
+// Positive FA (62 3F 06 + up to 480 bytes) has to fit. A 256-byte cap
+// truncates a real vehicle order.
+constexpr size_t kUdsRespMax = 512;
 
 constexpr uint16_t kLaGateway = uds_bdc::kLogicalAddress;
 constexpr uint16_t kLaTester  = 0x0E00;
@@ -203,8 +206,8 @@ void handleUdpDiscovery() {
 void sendDiagnosticResponse(int client, uint16_t sa, uint16_t ta,
                             const uint8_t* uds, size_t udsLen) {
   // DoIP diagnostic message: SA(2)+TA(2)+UDS
-  uint8_t packet[8 + 4 + 256];
-  if (udsLen > 256) udsLen = 256;
+  uint8_t packet[8 + 4 + kUdsRespMax];
+  if (udsLen > kUdsRespMax) udsLen = kUdsRespMax;
   const uint32_t plen = (uint32_t)(4 + udsLen);
   buildHeader(packet, kPtDiagnosticMessage, plen);
   writeU16Be(packet + 8, sa);   // our LA (BDC) as source
@@ -318,7 +321,7 @@ void handleHsfzClient(int client) {
 
     sendHsfz(client, 0x0002, body, len);
 
-    uint8_t resp[256];
+    uint8_t resp[kUdsRespMax];
     size_t respLen = uds_bdc::answerVin(uds, udsLen, resp, sizeof(resp));
     uint8_t respSrc = dst;
     if (respLen > 0) {
@@ -343,7 +346,7 @@ void handleHsfzClient(int client) {
     }
     if (respLen == 0) continue;
 
-    uint8_t out[2 + 256];
+    uint8_t out[2 + kUdsRespMax];
     out[0] = respSrc;
     out[1] = src;
     memcpy(out + 2, resp, respLen);
@@ -421,7 +424,7 @@ void handleTcpClient(int client) {
       ack[12] = 0x00;
       send(client, ack, sizeof(ack), 0);
 
-      uint8_t resp[256];
+      uint8_t resp[kUdsRespMax];
       size_t respLen = uds_bdc::answerVin(uds, udsLen, resp, sizeof(resp));
       uint16_t respSa = ta;
 
