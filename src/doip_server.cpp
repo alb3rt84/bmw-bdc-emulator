@@ -10,6 +10,7 @@
 #include "kcan_gw.h"
 #include "pc_link.h"
 #include "uds_bdc.h"
+#include "vehicle_svt.h"
 
 #include <ETH.h>
 #include <Preferences.h>
@@ -58,9 +59,9 @@ constexpr uint16_t kPtPowerModeRes         = 0x4004;
 // ISO 13400 announcement is 33 bytes once the VIN/GID sync byte is included.
 // EDIABAS drops a shorter DoIP reply and then has no VIN.
 constexpr size_t kAnnounceLen = 33;
-// Positive FA (62 3F 06 + up to 480 bytes) has to fit. A 256-byte cap
-// truncates a real vehicle order.
-constexpr size_t kUdsRespMax = 512;
+// FA is up to 480 bytes. The largest G20 SVK (HU_MGU, 22 F1 01) is 543 bytes
+// including the UDS header, so the cap has to clear that.
+constexpr size_t kUdsRespMax = 640;
 
 constexpr uint16_t kLaGateway = uds_bdc::kLogicalAddress;
 constexpr uint16_t kLaTester  = 0x0E00;
@@ -293,7 +294,7 @@ void handleHsfzClient(int client) {
   const int flags = fcntl(client, F_GETFL, 0);
   if (flags >= 0) fcntl(client, F_SETFL, flags & ~O_NONBLOCK);
 
-  uint8_t body[258];
+  uint8_t body[512];
   pc_link::noteLine("[ENET] HSFZ session on port 6801");
   for (;;) {
     uint8_t hdr[6];
@@ -314,7 +315,7 @@ void handleHsfzClient(int client) {
     const uint8_t dst = body[1];
     const uint8_t* uds = body + 2;
     const size_t udsLen = len - 2;
-    if (udsLen > 256) {
+    if (udsLen > 500) {
       sendHsfz(client, 0x0044, nullptr, 0);
       continue;
     }
@@ -330,7 +331,13 @@ void handleHsfzClient(int client) {
       char vin[18];
       bench_vin::copy(vin);
       notef("[UDS] VIN %s for 0x%02X", vin, dst);
-    } else if (dst == uds_bdc::kCanEcuAddr || (udsLen >= 1 && uds[0] == 0x3E)) {
+    } else if (dst != 0xDF &&
+               (respLen = vehicle_svt::answerSvk(dst, uds, udsLen, resp, sizeof(resp))) > 0) {
+      const char* ecuName = vehicle_svt::name(dst);
+      notef("[SVT] F101 0x%02X %s", dst, ecuName ? ecuName : "");
+    } else if (dst == uds_bdc::kCanEcuAddr ||
+               (dst != 0xDF && vehicle_svt::name(dst) != nullptr) ||
+               (udsLen >= 1 && uds[0] == 0x3E)) {
       respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
       if (dst == 0xDF) respSrc = uds_bdc::kCanEcuAddr;
     } else {
@@ -433,6 +440,15 @@ void handleTcpClient(int client) {
         char vin[18];
         bench_vin::copy(vin);
         notef("[UDS] VIN %s for LA 0x%04X", vin, ta);
+      } else if (!functional && ta <= 0x00FF &&
+                 (respLen = vehicle_svt::answerSvk((uint8_t)ta, uds, udsLen, resp,
+                                                   sizeof(resp))) > 0) {
+        respSa = ta;
+        const char* ecuName = vehicle_svt::name((uint8_t)ta);
+        notef("[SVT] F101 0x%02X %s", (unsigned)ta, ecuName ? ecuName : "");
+      } else if (!functional && ta <= 0x00FF && vehicle_svt::name((uint8_t)ta) != nullptr) {
+        respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
+        respSa = ta;
       } else if (toBdc || (udsLen >= 1 && uds[0] == 0x3E)) {
         respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
         respSa = kLaGateway;

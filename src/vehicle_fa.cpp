@@ -23,36 +23,13 @@ char g_istufe[16] = {};
 char g_werk[16] = {};
 char g_ho[16] = {};
 
-void put4(uint8_t* dst, const char* text) {
-  memcpy(dst, text, 4);
-}
-
+// G20 320d, VIN WBA5V510X0FJ28775. Same bytes as pc_companion/data/FA.xml.
 size_t buildDefault(uint8_t* out) {
-  const char* eCodes[] = {"A090"};
-  const char* saCodes[] = {
-      "1CA", "205", "248", "302", "322", "403", "430", "494",
-      "508", "522", "609", "610", "6NH", "6WB"};
-  const size_t eCount = sizeof(eCodes) / sizeof(eCodes[0]);
-  const size_t saCount = sizeof(saCodes) / sizeof(saCodes[0]);
-  size_t n = 0;
-  out[n++] = 0x03;
-  put4(out + n, "F015"); n += 4;
-  put4(out + n, "KR23"); n += 4;
-  put4(out + n, "0418"); n += 4;
-  put4(out + n, "0668"); n += 4;
-  put4(out + n, "LCSW"); n += 4;
-  out[n++] = (uint8_t)eCount;
-  for (size_t i = 0; i < eCount; i++) {
-    put4(out + n, eCodes[i]);
-    n += 4;
-  }
-  out[n++] = (uint8_t)saCount;
-  for (size_t i = 0; i < saCount; i++) {
-    memcpy(out + n, saCodes[i], 3);
-    n += 3;
-  }
-  out[n++] = 0;
-  return n;
+  static const uint8_t kG20Fa[] = {
+#include "g20_fa.inc"
+  };
+  memcpy(out, kG20Fa, sizeof(kG20Fa));
+  return sizeof(kG20Fa);
 }
 
 bool layoutOk(const uint8_t* data, size_t len) {
@@ -141,8 +118,10 @@ void load() {
   size_t storedLen = 0;
   Preferences prefs;
   prefs.begin("bdcfa", true);
+  // 2 = identity written by this G20 build. An older F15 blob has no gen.
+  const uint8_t gen = prefs.getUChar("gen", 0);
   const size_t n = prefs.getBytesLength("blob");
-  if (n > 0 && n <= kMaxFa) {
+  if (gen == 2 && n > 0 && n <= kMaxFa) {
     prefs.getBytes("blob", stored, n);
     storedLen = n;
   }
@@ -210,9 +189,11 @@ bool store(const uint8_t* data, size_t len) {
   portEXIT_CRITICAL(&g_mux);
   Preferences prefs;
   prefs.begin("bdcfa", false);
+  prefs.putUChar("gen", 2);
   prefs.putBytes("blob", data, len);
   prefs.end();
   logFa();
+  pc_link::noteFa(data, len);
   return true;
 }
 

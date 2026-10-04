@@ -53,6 +53,11 @@ void setFuelPct(float pct);
 void setCoolantC(int16_t celsius);
 void setSignals(const LiveSignals& s);
 
+/** Odometer in kilometres. CAN 0x330 bytes 0–2, little-endian, on the MCP2515. */
+void loadOdometer();
+bool setOdometer(uint32_t km);
+uint32_t odometerKm();
+
 void cyclicTxTask(void* arg);
 
 }  // namespace bmw

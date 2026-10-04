@@ -1,12 +1,13 @@
 # ZGW Emulator — okno na PC
 
-Program pokazuje emulator ZGW. Są w nim tylko przełączniki KL30 i KL15 oraz log.
+Program pokazuje emulator ZGW. Są w nim przełączniki KL30 i KL15, przebieg, edycja FA i SVT oraz log.
 
-ESP32 wysyła na MCP2515 jedną ramkę, co 100 ms:
+ESP32 wysyła na MCP2515 dwie ramki:
 
-| ID | Znaczenie | Oba przełączniki włączone |
-|----|-----------|---------------------------|
-| `0x12F` | Klemmen, KL30 i KL15 | `45 FF 45 FF FF FF FF FF` |
+| ID | Znaczenie | Zawartość |
+|----|-----------|-----------|
+| `0x12F` | Klemmen, KL30 i KL15, co 100 ms | `45 FF 45 FF FF FF FF FF` gdy oba włączone |
+| `0x330` | Przebieg, co 1 s | kilometry little-endian w bajtach 0–2 |
 
 | KL30 | KL15 | Bajt 0 i 2 |
 |------|------|------------|
@@ -17,7 +18,9 @@ ESP32 wysyła na MCP2515 jedną ramkę, co 100 ms:
 
 Połączenie to UDP na `169.254.1.20:13401` (adres ETH01). W polu VIN wpisuje się pełne 17 znaków auta. Emulator nadaje je w identyfikacji ENET, DoIP i w DID F190 na każdym adresie, więc ISTA nie prosi o VIN drugi raz. Skrót z nagłówka ISTA to ostatnie 7 znaków. Przełączniki KL30 i KL15 ustawiają jeden bajt. Ten bajt jest w ramce CAN `0x12F` i w odpowiedzi ENET na TCP 6811 (`45` gdy oba włączone, `00` gdy oba wyłączone).
 
-E-Sys przy połączeniu czyta FA (`22 3F 06`) z VCM `0x10`. Okno ładuje `data/FA.xml` i `data/VCM.xml` i wysyła je do emulatora przy połączeniu. W paczce jest szablon F15 (seria `F015`, typ `KR23`, data `0418`, I-Stufe `F025-18-03-520`), więc `requestFaFromMaster` dostaje poprawną strukturę. Do kodowania i drzewa sterowników wczytaj FA zapisane z tego auta (E-Sys: odczyt FA, zapisz XML, potem „Wczytaj FA.xml”). VIN z nagłówka `vinLong` i I-Stufe z VCM idą razem z zamówieniem. I-Stufe jest pamiętane i wpisywane w log, emulator nie odpowiada nim na osobny DID. W logu widać zdarzenia Ethernetu i ramki CAN odebrane przez MCP2515.
+Emulator startuje jako G20 320d, VIN `WBA5V510X0FJ28775`. VCM w BDC to zamówienie FA (`22 3F 06` i zapis `2E 3F 06`): seria `G020`, typ `5V51`, data `1119`, lakier `0C31`, tapicerka `KGNL`. Plik `data/FA.xml` jest tym zamówieniem. Osobnego pliku VCM nie ma. SVT (`data/SVT.xml`) to aktualne sterowniki, 29 adresów od `BDC_GW3` na `0x10`. Ta lista jest wkompilowana i można ją podmienić z okna. Na `22 F1 01` emulator oddaje SVK danego sterownika.
+
+Pole kilometrów i przycisk „Ustaw” zapisują przebieg. Płytka trzyma go i nadaje na CAN `0x330`. „Edytuj FA i SVT” wczytuje XML, pozwala zmienić zamówienie i listę sterowników, zapisuje XML i wysyła całość przyciskiem „Zapisz w emulatorze”. Połączenie oraz „Pobierz z emulatora” biorą z płytki przebieg i FA. Nie wysyłają pliku przy samym połączeniu, więc zapis FA albo VIN z Rheingolda (`2E 3F 06`, `2E F1 90`) zostaje i wraca do okna. Zapis SVT.xml trzyma sterowniki i SGBMID, bez pozostałych atrybutów E-Sys. W logu widać zdarzenia Ethernetu i ramki CAN odebrane przez MCP2515.
 
 ```bat
 cd pc_companion
@@ -30,6 +33,6 @@ Polecenie do płytki:
 
 ```json
 {"cmd":"kl","kl30":1,"kl15":1}
-{"cmd":"fa","hex":"03463031..."}
-{"cmd":"vcm","istufe":"F025-18-03-520","werk":"F025-17-11-502","ho":"F025-18-03-520"}
+{"cmd":"km","km":123456}
+{"cmd":"fa","hex":"0347303230..."}
 ```

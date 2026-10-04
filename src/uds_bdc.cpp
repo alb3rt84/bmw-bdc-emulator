@@ -13,6 +13,7 @@
 #include "config.h"
 #include "pc_link.h"
 #include "vehicle_fa.h"
+#include "vehicle_svt.h"
 
 #include <Arduino.h>
 #include <stdio.h>
@@ -77,6 +78,18 @@ size_t handleReadDid(const uint8_t* req, size_t len, uint8_t* out, size_t outMax
     const size_t n = answerVin(req, len, out, outMax);
     if (n > 0) return n;
     return neg(out, outMax, 0x22, 0x10);
+  }
+
+  // F101 — current SVK of BDC_GW3 from the baked-in G20 SVT.
+  if (did == 0xF101) {
+    const size_t n = vehicle_svt::answerSvk(kCanEcuAddr, req, len, out, outMax);
+    if (n > 0) {
+      const char* ecuName = vehicle_svt::name(kCanEcuAddr);
+      char msg[48];
+      snprintf(msg, sizeof(msg), "[SVT] F101 0x10 %s", ecuName ? ecuName : "");
+      pc_link::noteLine(msg);
+      return n;
+    }
   }
 
   // 3F06 — Fahrzeugauftrag. E-Sys service RDBI_FA on VCM 0x10.
@@ -171,6 +184,32 @@ size_t handleReadDtc(const uint8_t* req, size_t len, uint8_t* out, size_t outMax
   return neg(out, outMax, 0x19, 0x12);
 }
 
+size_t handleWriteDid(const uint8_t* req, size_t len, uint8_t* out, size_t outMax) {
+  if (len < 3) return neg(out, outMax, 0x2E, 0x13);
+  const uint16_t did = (uint16_t)((req[1] << 8) | req[2]);
+  if (did == 0xF190) {
+    if (len != 3 + 17) return neg(out, outMax, 0x2E, 0x13);
+    char vin[18];
+    memcpy(vin, req + 3, 17);
+    vin[17] = '\0';
+    if (!bench_vin::set(vin)) return neg(out, outMax, 0x2E, 0x31);
+    if (outMax < 3) return 0;
+    out[0] = 0x6E;
+    out[1] = 0xF1;
+    out[2] = 0x90;
+    return 3;
+  }
+  if (did == 0x3F06) {
+    if (!vehicle_fa::store(req + 3, len - 3)) return neg(out, outMax, 0x2E, 0x31);
+    if (outMax < 3) return 0;
+    out[0] = 0x6E;
+    out[1] = 0x3F;
+    out[2] = 0x06;
+    return 3;
+  }
+  return neg(out, outMax, 0x2E, 0x31);
+}
+
 }  // namespace
 
 bool init() {
@@ -208,6 +247,8 @@ size_t handleRequest(const uint8_t* req, size_t reqLen, uint8_t* out, size_t out
       return handleTesterPresent(req, reqLen, out, outMax);
     case 0x22:
       return handleReadDid(req, reqLen, out, outMax);
+    case 0x2E:
+      return handleWriteDid(req, reqLen, out, outMax);
     case 0x14:
       return handleClearDtc(req, reqLen, out, outMax);
     case 0x19:

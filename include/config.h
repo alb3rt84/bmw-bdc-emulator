@@ -113,7 +113,8 @@
 #define ETH_SUBNET     IPAddress(255, 255, 0, 0)
 // Check-digit-valid bench VIN. Letters I, O and Q are illegal in a VIN;
 // ZGW Search drops the reply when the 17 characters after BMWVIN contain one.
-#define BENCH_VIN      "WBA00000200000000"
+// G20 320d from the baked-in FA. Check digit is X.
+#define BENCH_VIN      "WBA5V510X0FJ28775"
 
 // ---------------------------------------------------------------------------
 // FreeRTOS task tuning
@@ -122,7 +123,7 @@
 #define TASK_STACK_CAN_RX       4096
 #define TASK_STACK_LIN          3072
 #define TASK_STACK_DOIP         12288
-#define TASK_STACK_PC_LINK      8192
+#define TASK_STACK_PC_LINK      12288
 
 #define TASK_PRIO_CAN_CYCLIC    5   // highest — time-critical wake / ignition
 #define TASK_PRIO_CAN_RX        4

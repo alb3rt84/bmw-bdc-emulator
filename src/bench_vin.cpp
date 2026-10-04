@@ -32,9 +32,11 @@ void load() {
   char stored[18] = {};
   Preferences prefs;
   prefs.begin("bdcvin", true);
+  // 2 = VIN stored after the G20 identity was installed. Older bench VINs stay unused.
+  const uint8_t gen = prefs.getUChar("gen", 0);
   const String saved = prefs.getString("vin", "");
   prefs.end();
-  if (saved.length() == 17) {
+  if (gen == 2 && saved.length() == 17) {
     memcpy(stored, saved.c_str(), 17);
     stored[17] = '\0';
     bool ok = true;
@@ -78,6 +80,7 @@ bool set(const char* vin) {
 
   Preferences prefs;
   prefs.begin("bdcvin", false);
+  prefs.putUChar("gen", 2);
   prefs.putString("vin", upper);
   prefs.end();
 

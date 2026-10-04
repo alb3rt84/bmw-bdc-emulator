@@ -21,6 +21,7 @@
 #include "pc_link.h"
 #include "uds_bdc.h"
 #include "vehicle_fa.h"
+#include "vehicle_svt.h"
 
 namespace {
 
@@ -61,6 +62,8 @@ void setup() {
 
   bench_vin::load();
   vehicle_fa::load();
+  vehicle_svt::load();
+  bmw::loadOdometer();
   uds_bdc::init();
   kcan_gw::init();
   obd_can::init();
