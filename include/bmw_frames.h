@@ -44,6 +44,9 @@ LiveSignals getSignals();
 void setIgnition(bool on);
 void setKl30(bool on);
 void setClamps(bool kl30, bool kl15);
+
+/** Same status byte as CAN 0x12F byte 0. ENET terminal-15 uses this byte too. */
+uint8_t terminalStatusByte();
 void setRpm(uint16_t rpm);
 void setSpeedKmh(float kmh);
 void setFuelPct(float pct);

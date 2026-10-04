@@ -116,8 +116,9 @@ void publishTerminals() {
   const uint8_t p[8] = {b, 0xFF, b, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
   setPayload(0x12F, p, 8);
   char msg[96];
-  snprintf(msg, sizeof(msg), "[KL] KL30=%d KL15=%d  12F %02X FF %02X FF FF FF FF FF",
-           s.kl30On ? 1 : 0, s.ignitionOn ? 1 : 0, b, b);
+  snprintf(msg, sizeof(msg),
+           "[KL] CAN 12F %02X FF %02X FF FF FF FF FF  ENET %02X  KL30=%d KL15=%d",
+           b, b, b, s.kl30On ? 1 : 0, s.ignitionOn ? 1 : 0);
   pc_link::noteLine(msg);
 }
 
@@ -141,6 +142,11 @@ void setClamps(bool kl30, bool kl15) {
   g_sig.ignitionOn = kl15;
   portEXIT_CRITICAL(&g_mux);
   publishTerminals();
+}
+
+uint8_t terminalStatusByte() {
+  const LiveSignals s = getSignals();
+  return terminalByte(s.kl30On, s.ignitionOn);
 }
 
 void setRpm(uint16_t rpm) {

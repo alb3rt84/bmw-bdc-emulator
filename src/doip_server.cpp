@@ -162,13 +162,13 @@ void sendUdp(const uint8_t* data, size_t len, const sockaddr_in& to) {
   sendOnCable(g_udpSock, data, len, to);
 }
 
-// ISTA polls KL15 often. Log only when the switch position changes.
-void logKl15(bool on, const char* via) {
+// Tools poll this often. Log only when the clamp byte changes.
+void logClamp(uint8_t st, const char* via) {
   static int last = -1;
-  const int now = on ? 1 : 0;
-  if (last == now) return;
-  last = now;
-  notef("[ENET] KL15 %s via %s", on ? "ON" : "OFF", via);
+  if (last == (int)st) return;
+  last = (int)st;
+  notef("[ENET] clamps %02X KL30=%d KL15=%d via %s", st,
+        (st & 0x01) ? 1 : 0, (st & 0x04) ? 1 : 0, via);
 }
 
 void handleUdpDiscovery() {
@@ -183,9 +183,9 @@ void handleUdpDiscovery() {
   if (ptype == kPtPowerModeReq) {
     uint8_t resp[9];
     buildHeader(resp, kPtPowerModeRes, 1);
-    resp[8] = bmw::getSignals().ignitionOn ? 0x01 : 0x00;
+    resp[8] = (bmw::terminalStatusByte() & 0x04) ? 0x01 : 0x00;
     sendUdp(resp, sizeof(resp), from);
-    logKl15(resp[8] == 0x01, "DoIP");
+    logClamp(bmw::terminalStatusByte(), "DoIP");
     return;
   }
   if (ptype != kPtVehicleIdentReq && ptype != kPtVehicleIdentReqEin &&
@@ -271,10 +271,10 @@ bool serveHsfzControl(int client, uint16_t ctrl, uint32_t len) {
     return true;
   }
   if (ctrl == 0x0010) {
-    const bool on = bmw::getSignals().ignitionOn;
-    const uint8_t st = on ? 0x04 : 0x00;
+    // Same byte as CAN 0x12F: bit0 KL30, bits3-2 KL15 (0x04 = on).
+    const uint8_t st = bmw::terminalStatusByte();
     sendHsfz(client, 0x0010, &st, 1);
-    logKl15(on, "HSFZ");
+    logClamp(st, "HSFZ");
     return true;
   }
   return false;
@@ -327,8 +327,9 @@ void handleHsfzClient(int client) {
       char vin[18];
       bench_vin::copy(vin);
       notef("[UDS] VIN %s for 0x%02X", vin, dst);
-    } else if (dst == uds_bdc::kCanEcuAddr) {
+    } else if (dst == uds_bdc::kCanEcuAddr || (udsLen >= 1 && uds[0] == 0x3E)) {
       respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
+      if (dst == 0xDF) respSrc = uds_bdc::kCanEcuAddr;
     } else {
       uint8_t from = dst;
       respLen = kcan_gw::transact(dst, uds, udsLen, resp, sizeof(resp), &from);
@@ -373,9 +374,9 @@ void handleTcpClient(int client) {
     if (ptype == kPtPowerModeReq) {
       uint8_t resp[9];
       buildHeader(resp, kPtPowerModeRes, 1);
-      resp[8] = bmw::getSignals().ignitionOn ? 0x01 : 0x00;
+      resp[8] = (bmw::terminalStatusByte() & 0x04) ? 0x01 : 0x00;
       send(client, resp, sizeof(resp), 0);
-      logKl15(resp[8] == 0x01, "DoIP");
+      logClamp(bmw::terminalStatusByte(), "DoIP");
       continue;
     }
 
@@ -429,7 +430,7 @@ void handleTcpClient(int client) {
         char vin[18];
         bench_vin::copy(vin);
         notef("[UDS] VIN %s for LA 0x%04X", vin, ta);
-      } else if (toBdc) {
+      } else if (toBdc || (udsLen >= 1 && uds[0] == 0x3E)) {
         respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
         respSa = kLaGateway;
       } else {

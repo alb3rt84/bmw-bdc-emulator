@@ -15,7 +15,7 @@ ESP32 wysyła na MCP2515 jedną ramkę, co 100 ms:
 | wyłączony | włączony | `44` |
 | włączony | włączony | `45` |
 
-Połączenie to UDP na `169.254.1.20:13401` (adres ETH01). W polu VIN wpisuje się pełne 17 znaków auta. Emulator nadaje je w identyfikacji ENET, DoIP i w DID F190 na każdym adresie, więc ISTA nie prosi o VIN drugi raz. Skrót z nagłówka ISTA to ostatnie 7 znaków. Przełącznik KL15 zmienia ramkę `0x12F` i odpowiedź zapłonu na TCP 6811 (`04` włączony, `00` wyłączony). W logu widać zdarzenia Ethernetu i ramki CAN odebrane przez MCP2515.
+Połączenie to UDP na `169.254.1.20:13401` (adres ETH01). W polu VIN wpisuje się pełne 17 znaków auta. Emulator nadaje je w identyfikacji ENET, DoIP i w DID F190 na każdym adresie, więc ISTA nie prosi o VIN drugi raz. Skrót z nagłówka ISTA to ostatnie 7 znaków. Przełączniki KL30 i KL15 ustawiają jeden bajt. Ten bajt jest w ramce CAN `0x12F` i w odpowiedzi ENET na TCP 6811 (`45` gdy oba włączone, `00` gdy oba wyłączone). E-Sys przy połączeniu czyta FA (`22 3F 06`); emulator oddaje zamówienie F15, kwiecień 2018, typ KR23. W logu widać zdarzenia Ethernetu i ramki CAN odebrane przez MCP2515.
 
 ```bat
 cd pc_companion

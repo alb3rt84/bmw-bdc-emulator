@@ -82,7 +82,7 @@ Details: [`pc_companion/README.md`](pc_companion/README.md).
 |----|--------|---------|------------------|
 | `0x12F` | 100 ms | Klemmen KL30 + KL15 | `45 FF 45 FF FF FF FF FF` |
 
-The PC window (`pc_companion/gui_app.py`) switches KL30 and KL15. KL30 only is byte `41`, KL15 only is byte `44`, both off is byte `00` (bytes 0 and 2). ISTA reads ignition on ENET TCP **6811** with `00 00 00 00 00 10` and expects `00 00 00 01 00 10` plus `04` (KL15 on) or `00` (KL15 off). The same answer is given if that control word arrives on TCP 6801. The KL30 switch changes CAN `0x12F`. The VIN typed in the window is the one in the ENET/DoIP announcement and in UDS F190 for every ECU address, which is what ISTA uses for automatic identification. It has to be the full 17-character VIN.
+The PC window (`pc_companion/gui_app.py`) switches KL30 and KL15. KL30 only is byte `41`, KL15 only is byte `44`, both off is byte `00` (bytes 0 and 2). ISTA reads ignition on ENET TCP **6811** with `00 00 00 00 00 10` and expects `00 00 00 01 00 10` plus `04` (KL15 on) or `00` (KL15 off). The same answer is given if that control word arrives on TCP 6801. The KL30 switch changes CAN `0x12F`. The VIN typed in the window is the one in the ENET/DoIP announcement and in UDS F190 for every ECU address. It has to be the full 17-character VIN. E-Sys `requestFaFromMaster` reads FA with `22 3F 06` on VCM `0x10`; the emulator answers with a bench order (series `F015`, type `KR23`, time `0418`). The clamp byte on ENET TCP 6811 is the same byte as CAN `0x12F`.
 
 ## FreeRTOS mapping
 

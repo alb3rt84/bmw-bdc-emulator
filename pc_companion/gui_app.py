@@ -108,7 +108,7 @@ class App(tk.Tk):
         ).pack(side="left", padx=16, pady=8)
         ttk.Label(
             clamps,
-            text="Oba włączone: 45 FF 45 FF FF FF FF FF.  KL15 dla ISTA: ENET TCP 6811.",
+            text="Ten sam bajt idzie w CAN 0x12F i w ENET TCP 6811. Oba włączone: 45.",
         ).pack(side="left", padx=8)
 
         log_frame = ttk.LabelFrame(self, text="Log Ethernet i ramki MCP2515")
