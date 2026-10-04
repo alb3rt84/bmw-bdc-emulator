@@ -11,8 +11,11 @@
 #include "bench_vin.h"
 #include "bmw_frames.h"
 #include "config.h"
+#include "pc_link.h"
+#include "vehicle_fa.h"
 
 #include <Arduino.h>
+#include <stdio.h>
 #include <string.h>
 
 namespace uds_bdc {
@@ -70,16 +73,26 @@ size_t handleReadDid(const uint8_t* req, size_t len, uint8_t* out, size_t outMax
   if (len < 3) return neg(out, outMax, 0x22, 0x13);
   const uint16_t did = (uint16_t)((req[1] << 8) | req[2]);
 
-  // F190 — VIN
   if (did == 0xF190) {
-    if (outMax < 3 + 17) return neg(out, outMax, 0x22, 0x10);
+    const size_t n = answerVin(req, len, out, outMax);
+    if (n > 0) return n;
+    return neg(out, outMax, 0x22, 0x10);
+  }
+
+  // 3F06 — Fahrzeugauftrag. E-Sys service RDBI_FA on VCM 0x10.
+  if (did == 0x3F06) {
+    if (outMax < 4) return neg(out, outMax, 0x22, 0x10);
     out[0] = 0x62;
-    out[1] = 0xF1;
-    out[2] = 0x90;
-    char vin[18];
-    bench_vin::copy(vin);
-    memcpy(out + 3, vin, 17);
-    return 3 + 17;
+    out[1] = 0x3F;
+    out[2] = 0x06;
+    const size_t n = vehicle_fa::copy(out + 3, outMax - 3);
+    if (n == 0) return neg(out, outMax, 0x22, 0x10);
+    char sum[20];
+    vehicle_fa::summary(sum);
+    char msg[40];
+    snprintf(msg, sizeof(msg), "[UDS] FA %s", sum);
+    pc_link::noteLine(msg);
+    return 3 + n;
   }
 
   // F186 — ActiveDiagnosticSession
@@ -168,6 +181,20 @@ bool init() {
 
 uint8_t currentSession() {
   return g_session;
+}
+
+size_t answerVin(const uint8_t* req, size_t reqLen, uint8_t* out, size_t outMax) {
+  if (!req || !out || reqLen < 3 || req[0] != 0x22) return 0;
+  const uint16_t did = (uint16_t)((req[1] << 8) | req[2]);
+  if (did != 0xF190) return 0;
+  if (outMax < 3 + 17) return 0;
+  out[0] = 0x62;
+  out[1] = 0xF1;
+  out[2] = 0x90;
+  char vin[18];
+  bench_vin::copy(vin);
+  memcpy(out + 3, vin, 17);
+  return 3 + 17;
 }
 
 size_t handleRequest(const uint8_t* req, size_t reqLen, uint8_t* out, size_t outMax) {

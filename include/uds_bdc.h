@@ -24,6 +24,13 @@ bool init();
  */
 size_t handleRequest(const uint8_t* req, size_t reqLen, uint8_t* out, size_t outMax);
 
+/**
+ * Vehicle VIN (ReadDataByIdentifier F190) from the emulator, for any ECU.
+ * ISTA reads this from the gateway and from other addresses before it
+ * accepts the announced VIN. @return 0 when req is not that service.
+ */
+size_t answerVin(const uint8_t* req, size_t reqLen, uint8_t* out, size_t outMax);
+
 /** Current diagnostic session (0x01 default, 0x03 extended, …). */
 uint8_t currentSession();
 

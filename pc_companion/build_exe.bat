@@ -23,7 +23,7 @@ if errorlevel 1 (
 )
 
 echo === PyInstaller ===
-".venv\Scripts\pyinstaller.exe" --noconfirm --onefile --windowed --name BmwBdcCompanion gui_app.py
+".venv\Scripts\pyinstaller.exe" --noconfirm --onefile --windowed --name BmwBdcCompanion --add-data "data;data" gui_app.py
 if errorlevel 1 (
   echo ERROR: PyInstaller failed
   pause

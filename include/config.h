@@ -101,6 +101,8 @@
 #define DOIP_UDP_DISCOVERY_PORT 13400
 #define DOIP_TCP_DATA_PORT      13400
 #define ENET_HSFZ_TCP_PORT      6801
+// UDP 6811 is vehicle identification. TCP 6811 is the EDIABAS control port:
+// ignition request 00 00 00 00 00 10, reply 00 00 00 01 00 10 plus 0x04 or 0x00.
 #define ENET_HSFZ_UDP_PORT      6811
 
 // ZGW Search and ISTA broadcast vehicle identification to
@@ -120,7 +122,7 @@
 #define TASK_STACK_CAN_RX       4096
 #define TASK_STACK_LIN          3072
 #define TASK_STACK_DOIP         12288
-#define TASK_STACK_PC_LINK      4096
+#define TASK_STACK_PC_LINK      8192
 
 #define TASK_PRIO_CAN_CYCLIC    5   // highest — time-critical wake / ignition
 #define TASK_PRIO_CAN_RX        4

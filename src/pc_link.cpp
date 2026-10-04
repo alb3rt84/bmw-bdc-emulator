@@ -6,9 +6,13 @@
  *   {"cmd":"ping"}
  *   {"cmd":"get"}
  *   {"cmd":"kl","kl30":1,"kl15":1}
+ *   {"cmd":"fa","hex":"03463031..."}
+ *   {"cmd":"vcm","istufe":"F025-18-03-520","werk":"...","ho":"..."}
  *
  * Reply:
  *   {"ok":1,"kl30":1,"kl15":1}
+ *   {"ok":1,"fa":"F015 KR23 0418"}
+ *   {"ok":1,"vcm":1}
  *
  * Unsolicited lines to the last UDP peer:
  *   {"ev":"eth","msg":"..."}
@@ -19,6 +23,7 @@
 #include "bench_vin.h"
 #include "bmw_frames.h"
 #include "config.h"
+#include "vehicle_fa.h"
 
 #include <Arduino.h>
 #include <ETH.h>
@@ -101,6 +106,13 @@ const char* parseCmd(const char* json) {
   p = strchr(p, '"');
   if (!p) return nullptr;
   return p + 1;
+}
+
+int hexNibble(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
 }
 
 bool cmdEquals(const char* cmdStart, const char* name) {
@@ -196,6 +208,58 @@ void handleLine(const char* line, Print& out) {
     return;
   }
 
+  if (cmdEquals(cmd, "fa")) {
+    static char hex[vehicle_fa::kMaxFa * 2 + 2];
+    if (!parseStringField(line, "hex", hex, sizeof(hex))) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_fa\"}"));
+      return;
+    }
+    const size_t hexLen = strlen(hex);
+    if (hexLen == 0 || (hexLen & 1) || hexLen / 2 > vehicle_fa::kMaxFa) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_fa\"}"));
+      return;
+    }
+    static uint8_t blob[vehicle_fa::kMaxFa];
+    for (size_t i = 0; i < hexLen; i += 2) {
+      const int hi = hexNibble(hex[i]);
+      const int lo = hexNibble(hex[i + 1]);
+      if (hi < 0 || lo < 0) {
+        out.println(F("{\"ok\":0,\"err\":\"bad_fa\"}"));
+        return;
+      }
+      blob[i / 2] = (uint8_t)((hi << 4) | lo);
+    }
+    if (!vehicle_fa::store(blob, hexLen / 2)) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_fa\"}"));
+      return;
+    }
+    char sum[20];
+    vehicle_fa::summary(sum);
+    out.printf("{\"ok\":1,\"fa\":\"%s\"}\n", sum);
+    return;
+  }
+
+  if (cmdEquals(cmd, "vcm")) {
+    char istufe[20];
+    char werk[20];
+    char ho[20];
+    const bool hasI = parseStringField(line, "istufe", istufe, sizeof(istufe));
+    const bool hasW = parseStringField(line, "werk", werk, sizeof(werk));
+    const bool hasH = parseStringField(line, "ho", ho, sizeof(ho));
+    if (!hasI && !hasW && !hasH) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_vcm\"}"));
+      return;
+    }
+    if (!vehicle_fa::setIStufe(hasI ? istufe : nullptr,
+                               hasW ? werk : nullptr,
+                               hasH ? ho : nullptr)) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_vcm\"}"));
+      return;
+    }
+    out.println(F("{\"ok\":1,\"vcm\":1}"));
+    return;
+  }
+
   out.println(F("{\"ok\":0,\"err\":\"unknown_cmd\"}"));
 }
 
@@ -251,8 +315,24 @@ void pollUdp() {
 
   int n = g_udp.parsePacket();
   while (n > 0) {
-    char buf[256];
-    const int r = g_udp.read(buf, sizeof(buf) - 1);
+    // FA JSON is about a kilobyte. This buffer is static: the task stack
+    // is too small for a 1500-byte local plus the reply printer.
+    static char buf[1500];
+    const int room = (int)sizeof(buf) - 1;
+    if (n > room) {
+      uint8_t dump[64];
+      while (g_udp.read(dump, sizeof(dump)) > 0) {
+      }
+      g_peerIp = g_udp.remoteIP();
+      g_peerPort = g_udp.remotePort();
+      UdpReplyPrinter reply;
+      reply.ip = g_peerIp;
+      reply.port = g_peerPort;
+      reply.println(F("{\"ok\":0,\"err\":\"too_big\"}"));
+      n = g_udp.parsePacket();
+      continue;
+    }
+    const int r = g_udp.read(buf, room);
     if (r > 0) {
       buf[r] = '\0';
       size_t L = (size_t)r;

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<faList xmlns="http://bmw.com/2005/psdz.data.fa">
+  <fa>
+    <header vinLong="WBA00000200000000"/>
+    <standardFA series="F015" typeKey="KR23" timeCriteria="0418" colourCode="0668" fabricCode="LCSW" faVersion="3">
+      <eCodes>
+        <eCode>A090</eCode>
+      </eCodes>
+      <saCodes>
+        <saCode>1CA</saCode>
+        <saCode>205</saCode>
+        <saCode>248</saCode>
+        <saCode>302</saCode>
+        <saCode>322</saCode>
+        <saCode>403</saCode>
+        <saCode>430</saCode>
+        <saCode>494</saCode>
+        <saCode>508</saCode>
+        <saCode>522</saCode>
+        <saCode>609</saCode>
+        <saCode>610</saCode>
+        <saCode>6NH</saCode>
+        <saCode>6WB</saCode>
+      </saCodes>
+      <hoCodes/>
+    </standardFA>
+  </fa>
+</faList>
