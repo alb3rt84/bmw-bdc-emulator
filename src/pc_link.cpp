@@ -1,17 +1,18 @@
 /**
  * @file pc_link.cpp
- * @brief Parse companion JSON commands from Serial and UDP port 13401.
+ * @brief Companion commands for the ZGW clamp switches, plus a log stream.
  *
- * Protocol (one JSON object per line, \\n terminated):
+ * Commands (one JSON object per line):
  *   {"cmd":"ping"}
  *   {"cmd":"get"}
- *   {"cmd":"ign","on":1}
- *   {"cmd":"sig","rpm":1500,"spd":60.5,"fuel":75,"clt":90}
- *   {"cmd":"ign","on":0}   // Terminal 15 OFF
+ *   {"cmd":"kl","kl30":1,"kl15":1}
  *
- * Responses (also JSON line):
- *   {"ok":1,"ign":1,"rpm":1500,"spd":60.5,"fuel":75,"clt":90}
- *   {"ok":0,"err":"..."}
+ * Reply:
+ *   {"ok":1,"kl30":1,"kl15":1}
+ *
+ * Unsolicited lines to the last UDP peer:
+ *   {"ev":"eth","msg":"..."}
+ *   {"ev":"can","id":"12F","dlc":8,"data":"45 FF ..."}
  */
 
 #include "pc_link.h"
@@ -22,6 +23,7 @@
 #include <ETH.h>
 #include <WiFiUdp.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -34,7 +36,21 @@ bool g_udpStarted = false;
 char g_serialBuf[256];
 size_t g_serialLen = 0;
 
+IPAddress g_peerIp;
+uint16_t g_peerPort = 0;
+
 constexpr uint16_t kCompanionUdpPort = 13401;
+constexpr int kEthHist = 16;
+
+char g_ethHist[kEthHist][140];
+int g_ethHistN = 0;
+
+struct NoteItem {
+  char text[140];
+  uint8_t eth;
+};
+
+QueueHandle_t g_notes = nullptr;
 
 float parseFloatField(const char* json, const char* key, bool* found) {
   *found = false;
@@ -61,7 +77,7 @@ const char* parseCmd(const char* json) {
   if (!p) return nullptr;
   p = strchr(p, '"');
   if (!p) return nullptr;
-  return p + 1;  // start of command token
+  return p + 1;
 }
 
 bool cmdEquals(const char* cmdStart, const char* name) {
@@ -71,11 +87,47 @@ bool cmdEquals(const char* cmdStart, const char* name) {
          (cmdStart[n] == '"' || cmdStart[n] == '\0');
 }
 
+void rememberEth(const char* line) {
+  if (g_ethHistN < kEthHist) {
+    snprintf(g_ethHist[g_ethHistN], sizeof(g_ethHist[0]), "%s", line);
+    g_ethHistN++;
+    return;
+  }
+  memmove(g_ethHist[0], g_ethHist[1], sizeof(g_ethHist[0]) * (kEthHist - 1));
+  snprintf(g_ethHist[kEthHist - 1], sizeof(g_ethHist[0]), "%s", line);
+}
+
+void enqueue(const char* line, bool eth) {
+  if (!line || !line[0]) return;
+  if (eth) rememberEth(line);
+  if (!g_notes) return;
+  NoteItem item = {};
+  snprintf(item.text, sizeof(item.text), "%s", line);
+  item.eth = eth ? 1 : 0;
+  xQueueSend(g_notes, &item, 0);
+}
+
 void replyStatus(Print& out) {
   const bmw::LiveSignals s = bmw::getSignals();
-  out.printf("{\"ok\":1,\"ign\":%d,\"rpm\":%u,\"spd\":%.1f,\"fuel\":%.1f,\"clt\":%d}\n",
-             s.ignitionOn ? 1 : 0, (unsigned)s.rpm, (double)s.speedKmh,
-             (double)s.fuelPct, (int)s.coolantC);
+  out.printf("{\"ok\":1,\"kl30\":%d,\"kl15\":%d}\n",
+             s.kl30On ? 1 : 0, s.ignitionOn ? 1 : 0);
+}
+
+void sendUdpLine(const char* line) {
+  if (!g_udpStarted || g_peerPort == 0 || !line) return;
+  g_udp.beginPacket(g_peerIp, g_peerPort);
+  g_udp.write((const uint8_t*)line, strlen(line));
+  g_udp.endPacket();
+}
+
+void sendEvent(const char* kind, const char* msg) {
+  char line[200];
+  snprintf(line, sizeof(line), "{\"ev\":\"%s\",\"msg\":\"%s\"}\n", kind, msg);
+  sendUdpLine(line);
+}
+
+void replayEth() {
+  for (int i = 0; i < g_ethHistN; i++) sendEvent("eth", g_ethHist[i]);
 }
 
 void handleLine(const char* line, Print& out) {
@@ -92,32 +144,19 @@ void handleLine(const char* line, Print& out) {
     return;
   }
 
-  if (cmdEquals(cmd, "ign")) {
+  if (cmdEquals(cmd, "kl") || cmdEquals(cmd, "ign")) {
+    const bmw::LiveSignals cur = bmw::getSignals();
     bool found = false;
-    const int on = parseIntField(line, "on", &found);
-    if (!found) {
-      out.println(F("{\"ok\":0,\"err\":\"missing_on\"}"));
+    bool kl30 = cur.kl30On;
+    bool kl15 = cur.ignitionOn;
+    if (strstr(line, "\"kl30\"")) kl30 = parseIntField(line, "kl30", &found) != 0;
+    if (strstr(line, "\"kl15\"")) kl15 = parseIntField(line, "kl15", &found) != 0;
+    if (strstr(line, "\"on\"")) kl15 = parseIntField(line, "on", &found) != 0;
+    if (!strstr(line, "\"kl30\"") && !strstr(line, "\"kl15\"") && !strstr(line, "\"on\"")) {
+      out.println(F("{\"ok\":0,\"err\":\"missing_clamp\"}"));
       return;
     }
-    bmw::setIgnition(on != 0);
-    replyStatus(out);
-    return;
-  }
-
-  if (cmdEquals(cmd, "sig")) {
-    bool f = false;
-    if (strstr(line, "\"rpm\"")) {
-      bmw::setRpm((uint16_t)parseIntField(line, "rpm", &f));
-    }
-    if (strstr(line, "\"spd\"")) {
-      bmw::setSpeedKmh(parseFloatField(line, "spd", &f));
-    }
-    if (strstr(line, "\"fuel\"")) {
-      bmw::setFuelPct(parseFloatField(line, "fuel", &f));
-    }
-    if (strstr(line, "\"clt\"")) {
-      bmw::setCoolantC((int16_t)parseIntField(line, "clt", &f));
-    }
+    bmw::setClamps(kl30, kl15);
     replyStatus(out);
     return;
   }
@@ -125,7 +164,6 @@ void handleLine(const char* line, Print& out) {
   out.println(F("{\"ok\":0,\"err\":\"unknown_cmd\"}"));
 }
 
-/** Lightweight Print adapter that sends one UDP datagram to last peer. */
 class UdpReplyPrinter : public Print {
  public:
   IPAddress ip;
@@ -159,18 +197,18 @@ void pollSerial() {
     if (g_serialLen + 1 < sizeof(g_serialBuf)) {
       g_serialBuf[g_serialLen++] = c;
     } else {
-      g_serialLen = 0;  // overflow — resync
+      g_serialLen = 0;
     }
   }
 }
 
 void pollUdp() {
   if (!g_udpStarted) {
-    // Start once Ethernet has an IP (DoIP task brings ETH up)
     if (ETH.linkUp() && ETH.localIP()[0] != 0) {
       if (g_udp.begin(kCompanionUdpPort)) {
         g_udpStarted = true;
         Serial.printf("[PC] Companion UDP :%u\n", kCompanionUdpPort);
+        enqueue("[PC] Companion UDP :13401", true);
       }
     }
     return;
@@ -182,14 +220,16 @@ void pollUdp() {
     const int r = g_udp.read(buf, sizeof(buf) - 1);
     if (r > 0) {
       buf[r] = '\0';
-      // Trim trailing CR/LF
       size_t L = (size_t)r;
       while (L > 0 && (buf[L - 1] == '\n' || buf[L - 1] == '\r')) {
         buf[--L] = '\0';
       }
+      const bool newPeer = g_udp.remotePort() != g_peerPort || g_udp.remoteIP() != g_peerIp;
+      g_peerIp = g_udp.remoteIP();
+      g_peerPort = g_udp.remotePort();
       UdpReplyPrinter reply;
-      reply.ip = g_udp.remoteIP();
-      reply.port = g_udp.remotePort();
+      reply.ip = g_peerIp;
+      reply.port = g_peerPort;
       handleLine(buf, reply);
       if (reply.len > 0 && reply.port) {
         g_udp.beginPacket(reply.ip, reply.port);
@@ -197,15 +237,50 @@ void pollUdp() {
         g_udp.endPacket();
         reply.len = 0;
       }
+      if (newPeer) {
+        NoteItem drop;
+        while (g_notes && xQueueReceive(g_notes, &drop, 0) == pdTRUE) {
+        }
+        replayEth();
+      }
     }
     n = g_udp.parsePacket();
   }
 }
 
+void drainNotes() {
+  if (!g_notes || g_peerPort == 0) return;
+  NoteItem item;
+  int budget = 8;
+  while (budget-- > 0 && xQueueReceive(g_notes, &item, 0) == pdTRUE) {
+    if (item.eth) sendEvent("eth", item.text);
+    else sendEvent("can", item.text);
+  }
+}
+
 }  // namespace
 
+void noteLine(const char* line) {
+  Serial.println(line);
+  enqueue(line, true);
+}
+
+void noteCan(uint32_t id, const uint8_t* data, uint8_t dlc) {
+  if (!data) return;
+  if (dlc > 8) dlc = 8;
+  char msg[80];
+  int n = snprintf(msg, sizeof(msg), "RX %03X", (unsigned)id);
+  for (uint8_t i = 0; i < dlc && n > 0 && n < (int)sizeof(msg) - 4; i++) {
+    n += snprintf(msg + n, sizeof(msg) - (size_t)n, " %02X", data[i]);
+  }
+  Serial.printf("[MCP] %s\n", msg);
+  if (g_peerPort == 0) return;
+  enqueue(msg, false);
+}
+
 bool init() {
-  Serial.println(F("[PC] Link ready (USB-Serial JSON + UDP :13401)"));
+  if (!g_notes) g_notes = xQueueCreate(48, sizeof(NoteItem));
+  Serial.println(F("[PC] Link ready (UDP :13401, KL30/KL15)"));
   return true;
 }
 
@@ -213,6 +288,7 @@ void task(void* /*arg*/) {
   for (;;) {
     pollSerial();
     pollUdp();
+    drainNotes();
     vTaskDelay(pdMS_TO_TICKS(5));
   }
 }

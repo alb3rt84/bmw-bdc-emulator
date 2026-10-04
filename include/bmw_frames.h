@@ -22,6 +22,7 @@ struct CyclicFrame {
 };
 
 struct LiveSignals {
+  bool     kl30On;       // Terminal 30 in 0x12F
   bool     ignitionOn;   // Terminal 15
   uint16_t rpm;          // 0..8000
   float    speedKmh;     // 0..300
@@ -41,6 +42,8 @@ LiveSignals getSignals();
  * Called from the PC-link task; cyclic TX task always reads latest payloads.
  */
 void setIgnition(bool on);
+void setKl30(bool on);
+void setClamps(bool kl30, bool kl15);
 void setRpm(uint16_t rpm);
 void setSpeedKmh(float kmh);
 void setFuelPct(float pct);

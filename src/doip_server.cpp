@@ -6,6 +6,7 @@
 #include "doip_server.h"
 #include "config.h"
 #include "kcan_gw.h"
+#include "pc_link.h"
 #include "uds_bdc.h"
 
 #include <ETH.h>
@@ -19,12 +20,23 @@
 #include <esp_system.h>
 #include <lwip/netif.h>
 #include <lwip/sockets.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 // Set after a full PHY scan fails, so one power cycle does not reboot forever.
 // Cleared by a real power loss.
 RTC_DATA_ATTR static uint8_t g_ethScanDone = 0;
 
 namespace doip {
+
+void notef(const char* fmt, ...) {
+  char buf[160];
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+  pc_link::noteLine(buf);
+}
 
 constexpr uint8_t kDoipVersion    = 0x02;
 constexpr uint8_t kDoipInvVersion = 0xFD;
@@ -222,7 +234,7 @@ void handleHsfzClient(int client) {
   if (flags >= 0) fcntl(client, F_SETFL, flags & ~O_NONBLOCK);
 
   uint8_t body[258];
-  Serial.println(F("[ENET] HSFZ session on port 6801"));
+  pc_link::noteLine("[ENET] HSFZ session on port 6801");
   for (;;) {
     uint8_t hdr[6];
     if (!recvFull(client, hdr, 6)) break;
@@ -285,7 +297,7 @@ void handleHsfzClient(int client) {
     Serial.printf("[ENET] 0x%02X -> 0x%02X  %u bytes\n", src, dst, (unsigned)respLen);
   }
   close(client);
-  Serial.println(F("[ENET] session closed"));
+  pc_link::noteLine("[ENET] session closed");
 }
 
 void handleTcpClient(int client) {
@@ -385,10 +397,12 @@ bool applyStaticIp() {
 }
 
 void logEthAddress(const char* why) {
-  Serial.printf("[ETH] %s IP %s mask %s link %s\n", why,
-                ETH.localIP().toString().c_str(),
-                ETH.subnetMask().toString().c_str(),
-                ETH.linkUp() ? "up" : "down");
+  char msg[140];
+  snprintf(msg, sizeof(msg), "[ETH] %s IP %s mask %s link %s", why,
+           ETH.localIP().toString().c_str(),
+           ETH.subnetMask().toString().c_str(),
+           ETH.linkUp() ? "up" : "down");
+  pc_link::noteLine(msg);
 }
 
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
@@ -400,7 +414,7 @@ void onEthEvent(arduino_event_id_t event, arduino_event_info_t info) {
       applyStaticIp();
       break;
     case ARDUINO_EVENT_ETH_CONNECTED:
-      Serial.println(F("[ETH] Link up"));
+      pc_link::noteLine("[ETH] Link up");
       applyStaticIp();
       logEthAddress("link");
       break;
@@ -410,7 +424,7 @@ void onEthEvent(arduino_event_id_t event, arduino_event_info_t info) {
       break;
     case ARDUINO_EVENT_ETH_DISCONNECTED:
       g_ethReady = false;
-      Serial.println(F("[ETH] Link down"));
+      pc_link::noteLine("[ETH] Link down");
       break;
     default:
       break;
@@ -424,7 +438,7 @@ void onEthEvent(WiFiEvent_t event) {
       applyStaticIp();
       break;
     case ARDUINO_EVENT_ETH_CONNECTED:
-      Serial.println(F("[ETH] Link up"));
+      pc_link::noteLine("[ETH] Link up");
       applyStaticIp();
       logEthAddress("link");
       break;
@@ -434,7 +448,7 @@ void onEthEvent(WiFiEvent_t event) {
       break;
     case ARDUINO_EVENT_ETH_DISCONNECTED:
       g_ethReady = false;
-      Serial.println(F("[ETH] Link down"));
+      pc_link::noteLine("[ETH] Link down");
       break;
     default:
       break;
@@ -506,7 +520,7 @@ bool startEthernet() {
   if (beginEthernet(attempt.addr, attempt.power, attempt.clock)) {
     prefs.putInt("try", idx);
     prefs.end();
-    Serial.printf("[ETH] PHY up: %s\n", attempt.name);
+    notef("[ETH] PHY up: %s", attempt.name);
     return true;
   }
   Serial.printf("[ETH] no PHY: %s\n", attempt.name);
@@ -613,8 +627,8 @@ void hsfzUdpTask(void* /*arg*/) {
         vTaskDelay(pdMS_TO_TICKS(500));
         continue;
       }
-      Serial.printf("[ENET] ZGW search listening UDP :%u VIN %s\n",
-                    ENET_HSFZ_UDP_PORT, kBenchVin);
+      notef("[ENET] ZGW search listening UDP :%u VIN %s",
+            ENET_HSFZ_UDP_PORT, kBenchVin);
     }
 
     uint8_t buf[128];
@@ -631,9 +645,9 @@ void hsfzUdpTask(void* /*arg*/) {
           ((ctrl == 0x0011 && len == 0) || ctrl == 0x0012 || n <= 8);
       if (request) {
         sendVehicleIdent(from);
-        Serial.printf("[ENET] ZGW search from %s:%u -> VIN %s\n",
-                      inet_ntoa(from.sin_addr), (unsigned)ntohs(from.sin_port),
-                      kBenchVin);
+        notef("[ENET] ZGW search from %s:%u -> VIN %s",
+              inet_ntoa(from.sin_addr), (unsigned)ntohs(from.sin_port),
+              kBenchVin);
       }
     }
     if (millis() - lastAnnounce > 2000) {
@@ -651,7 +665,7 @@ void serverTask(void* /*arg*/) {
   }
   if (!g_ethReady) {
     logEthAddress("still down");
-    Serial.println(F("[ETH] No link. Check the cable and that GPIO16 stays the PHY enable."));
+    pc_link::noteLine("[ETH] No link. Check the cable and that GPIO16 stays the PHY enable.");
     while (!ETH.linkUp()) {
       vTaskDelay(pdMS_TO_TICKS(500));
     }
@@ -688,10 +702,10 @@ void serverTask(void* /*arg*/) {
   listen(g_enetSock, 2);
   fcntl(g_enetSock, F_SETFL, O_NONBLOCK);
 
-  Serial.printf("[DoIP] BDC LA=0x%04X listening UDP/TCP :%u (IP %s)\n",
-                kLaGateway, DOIP_TCP_DATA_PORT,
-                ETH.localIP().toString().c_str());
-  Serial.printf("[ENET] HSFZ listening TCP :%u\n", ENET_HSFZ_TCP_PORT);
+  notef("[DoIP] BDC LA=0x%04X listening UDP/TCP :%u (IP %s)",
+        kLaGateway, DOIP_TCP_DATA_PORT,
+        ETH.localIP().toString().c_str());
+  notef("[ENET] HSFZ listening TCP :%u", ENET_HSFZ_TCP_PORT);
 
   for (;;) {
     handleUdpDiscovery();
@@ -700,7 +714,7 @@ void serverTask(void* /*arg*/) {
     socklen_t cal = sizeof(ca);
     const int client = accept(g_tcpSock, (sockaddr*)&ca, &cal);
     if (client >= 0) {
-      Serial.printf("[DoIP] TCP client %s\n", inet_ntoa(ca.sin_addr));
+      notef("[DoIP] TCP client %s", inet_ntoa(ca.sin_addr));
       fcntl(client, F_SETFL, O_NONBLOCK);
       handleTcpClient(client);
     }
@@ -708,7 +722,7 @@ void serverTask(void* /*arg*/) {
     cal = sizeof(ca);
     const int enet = accept(g_enetSock, (sockaddr*)&ca, &cal);
     if (enet >= 0) {
-      Serial.printf("[ENET] TCP client %s\n", inet_ntoa(ca.sin_addr));
+      notef("[ENET] TCP client %s", inet_ntoa(ca.sin_addr));
       handleHsfzClient(enet);
     }
 

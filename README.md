@@ -8,7 +8,7 @@ ESP32-based Body Domain Controller / Central Gateway emulator for **on-the-table
 |-----------|----------------|
 | **CAN1** | ESP32 TWAI @ 500 kbit/s — cyclic wake frames |
 | **CAN2** | MCP2515 @ 500 kbit/s — ENET converter to the module |
-| **Wake / KL15** | FreeRTOS cyclic TX: `0x510`, `0x12F`, `0x34A`, `0x2F8` |
+| **KL30 / KL15** | MCP2515 cyclic `0x12F` every 100 ms, switches from the PC window |
 | **Live signals** | RPM `0x0A5`, Speed `0x1A1`, Coolant `0x1D0`, Fuel `0x349` (editable) |
 | **LIN Master** | UART2 @ 19200 + break/header scheduler (TJA1020) |
 | **DoIP** | LAN8720A Ethernet, TCP/UDP port **13400** → shared UDS BDC |
@@ -66,10 +66,7 @@ ID 0x610  data: F1 02 7E 00 ...
 
 ## PC Companion GUI
 
-Python/Tkinter app (`pc_companion/gui_app.py`) controls ignition + RPM/speed/fuel/coolant.
-
-- **Robotell USB-CAN** — PC talks to the CH340 adapter directly (binary protocol, CAN 500 kbit/s) and transmits the cyclic BDC frames. Build `pc_companion\dist\BmwBdcCompanion.exe` with `build_exe.bat`.
-- **Serial / UDP :13401** — same signals through the ESP32 firmware.
+Python/Tkinter window (`pc_companion/gui_app.py`) talks to the ZGW at `169.254.1.20:13401`. It has KL30 and KL15 switches and a log of Ethernet events plus CAN frames received by the MCP2515.
 
 ```bat
 cd pc_companion
@@ -79,23 +76,13 @@ pyinstaller --noconfirm --onefile --windowed --name BmwBdcCompanion gui_app.py
 
 Details: [`pc_companion/README.md`](pc_companion/README.md).
 
-## Cyclic BMW G-Chassis frames (hardcoded)
+## Cyclic frame on the MCP2515
 
-| ID | Period | Purpose | Default payload |
-|----|--------|---------|-----------------|
-| `0x510` | 100 ms | OSEK NM (BDC) — keep bus awake | `00 01 00 00 00 00 00 00` |
-| `0x12F` | 100 ms | Zustand Klemmen — KL15 / KL30B ON | `45 FF 45 FF FF FF FF FF` |
-| `0x34A` | 20 ms | Fahrzustand — alive, stationary | `10 00 00 00 00 00 00 00` |
-| `0x2F8` | 1000 ms | Zeit_Datum — silence sync DTCs | `24 0C 0F 0E 00 00 00 FF` |
+| ID | Period | Purpose | Both switches on |
+|----|--------|---------|------------------|
+| `0x12F` | 100 ms | Klemmen KL30 + KL15 | `45 FF 45 FF FF FF FF FF` |
 
-Inject custom HEX at runtime:
-
-```cpp
-uint8_t p[8] = {0x45, 0xFF, 0x45, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-bmw::setPayload(0x12F, p, 8);
-```
-
-Or edit the table in `src/bmw_frames.cpp`.
+The PC window (`pc_companion/gui_app.py`) switches KL30 and KL15. KL30 only is byte `41`, KL15 only is byte `44`, both off is byte `00` (bytes 0 and 2).
 
 ## FreeRTOS mapping
 

@@ -8,9 +8,11 @@
  */
 
 #include "bmw_frames.h"
+#include "pc_link.h"
 
 #include <Arduino.h>
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 namespace bmw {
@@ -18,11 +20,17 @@ namespace bmw {
 namespace {
 
 portMUX_TYPE g_mux = portMUX_INITIALIZER_UNLOCKED;
-LiveSignals g_sig = {true, 0, 0.f, 50.f, 90};
+LiveSignals g_sig = {true, true, 0, 0.f, 50.f, 90};
 
-// Terminal 15 payloads for Zustand Klemmen 0x12F
-const uint8_t kIgnOn[8]  = {0x45, 0xFF, 0x45, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-const uint8_t kIgnOff[8] = {0x00, 0xFF, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+// 0x12F byte 0 and byte 2. Both clamps on is the ready frame 0x45:
+// bit0 ST_KL_R (KL30), bits3-2 ST_KL_15, bits7-6 ST_KEY_VLD.
+uint8_t terminalByte(bool kl30, bool kl15) {
+  uint8_t b = 0;
+  if (kl30) b |= 0x01;
+  if (kl15) b |= 0x04;
+  if (kl30 || kl15) b |= 0x40;
+  return b;
+}
 
 /**
  * Encode helpers — EDIT byte layout to match your DBC / captures.
@@ -66,41 +74,12 @@ void encodeFuel(uint8_t out[8], float pct) {
 }  // namespace
 
 // ---------------------------------------------------------------------------
-// Cyclic table — BDC wake/ignition + live instrument signals
+// One cyclic frame on the MCP2515: Klemmen 0x12F, KL30 and KL15.
 // ---------------------------------------------------------------------------
 static CyclicFrame g_table[] = {
-    {"NM_BDC_0x510", 0x510, 8,
-     {0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-     100, 0, CanChannel::Can1_Twai},
-
     {"Terminal_0x12F", 0x12F, 8,
      {0x45, 0xFF, 0x45, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
-     100, 0, CanChannel::Can1_Twai},
-
-    {"Fahrzustand_0x34A", 0x34A, 8,
-     {0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-     20, 0, CanChannel::Can1_Twai},
-
-    {"ZeitDatum_0x2F8", 0x2F8, 8,
-     {0x24, 0x0C, 0x0F, 0x0E, 0x00, 0x00, 0x00, 0xFF},
-     1000, 0, CanChannel::Can1_Twai},
-
-    // --- Live companion signals (EDIT IDs / layouts to match your DBC) ---
-    {"RPM_0x0A5", 0x0A5, 8,
-     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-     20, 0, CanChannel::Can1_Twai},
-
-    {"Speed_0x1A1", 0x1A1, 8,
-     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-     20, 0, CanChannel::Can1_Twai},
-
-    {"Coolant_0x1D0", 0x1D0, 8,
-     {0x8A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},  // 90+48=138=0x8A
-     100, 0, CanChannel::Can1_Twai},
-
-    {"Fuel_0x349", 0x349, 8,
-     {0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},  // 50%
-     200, 0, CanChannel::Can1_Twai},
+     100, 0, CanChannel::Can2_Mcp},
 };
 
 CyclicFrame* getCyclicTable(size_t& count) {
@@ -131,11 +110,37 @@ LiveSignals getSignals() {
   return s;
 }
 
+void publishTerminals() {
+  const LiveSignals s = getSignals();
+  const uint8_t b = terminalByte(s.kl30On, s.ignitionOn);
+  const uint8_t p[8] = {b, 0xFF, b, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  setPayload(0x12F, p, 8);
+  char msg[96];
+  snprintf(msg, sizeof(msg), "[KL] KL30=%d KL15=%d  12F %02X FF %02X FF FF FF FF FF",
+           s.kl30On ? 1 : 0, s.ignitionOn ? 1 : 0, b, b);
+  pc_link::noteLine(msg);
+}
+
 void setIgnition(bool on) {
   portENTER_CRITICAL(&g_mux);
   g_sig.ignitionOn = on;
   portEXIT_CRITICAL(&g_mux);
-  setPayload(0x12F, on ? kIgnOn : kIgnOff, 8);
+  publishTerminals();
+}
+
+void setKl30(bool on) {
+  portENTER_CRITICAL(&g_mux);
+  g_sig.kl30On = on;
+  portEXIT_CRITICAL(&g_mux);
+  publishTerminals();
+}
+
+void setClamps(bool kl30, bool kl15) {
+  portENTER_CRITICAL(&g_mux);
+  g_sig.kl30On = kl30;
+  g_sig.ignitionOn = kl15;
+  portEXIT_CRITICAL(&g_mux);
+  publishTerminals();
 }
 
 void setRpm(uint16_t rpm) {
@@ -175,7 +180,7 @@ void setCoolantC(int16_t celsius) {
 }
 
 void setSignals(const LiveSignals& s) {
-  setIgnition(s.ignitionOn);
+  setClamps(s.kl30On, s.ignitionOn);
   setRpm(s.rpm);
   setSpeedKmh(s.speedKmh);
   setFuelPct(s.fuelPct);
