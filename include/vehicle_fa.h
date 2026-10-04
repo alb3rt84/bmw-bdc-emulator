@@ -25,7 +25,8 @@ size_t copy(uint8_t* out, size_t outMax);
 
 /**
  * 22 3F 06 body. Bytes 0–1 are the order length. Byte 2 is FA version 3,
- * then series, type key and Zeitkriterium. Zeros fill through index 842.
+ * then series, type key and Zeitkriterium. The unused tail repeats 1119
+ * through index 842 so a short read is still a date.
  * @return kPsdzFaBytes, or 0 when outMax is too small.
  */
 size_t copyWrapped(uint8_t* out, size_t outMax);

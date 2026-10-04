@@ -165,10 +165,10 @@ void load() {
   size_t storedLen = 0;
   Preferences prefs;
   prefs.begin("bdcfa", true);
-  // 2 = identity written by this G20 build. An older F15 blob has no gen.
+  // 3 = identity written by this G20 build. Older blobs are ignored.
   const uint8_t gen = prefs.getUChar("gen", 0);
   const size_t n = prefs.getBytesLength("blob");
-  if (gen == 2 && n > 0 && n <= kMaxFa) {
+  if (gen == 3 && n > 0 && n <= kMaxFa) {
     prefs.getBytes("blob", stored, n);
     storedLen = n;
   }
@@ -238,6 +238,16 @@ size_t copyWrapped(uint8_t* out, size_t outMax) {
   out[0] = (uint8_t)(n >> 8);
   out[1] = (uint8_t)n;
   memcpy(out + 2, fa, n);
+  // Bytes after the order used to be zeros. A 4-byte read there is an empty
+  // date, which E-Sys reports as an unsupported Zeitkriterium. Repeat 1119.
+  size_t i = 2 + n;
+  while (i < kPsdzFaBytes && (i % 4) != 0) out[i++] = '1';
+  while (i + 4 <= kPsdzFaBytes) {
+    out[i++] = '1';
+    out[i++] = '1';
+    out[i++] = '1';
+    out[i++] = '9';
+  }
   return kPsdzFaBytes;
 }
 
@@ -251,7 +261,7 @@ bool store(const uint8_t* data, size_t len) {
   portEXIT_CRITICAL(&g_mux);
   Preferences prefs;
   prefs.begin("bdcfa", false);
-  prefs.putUChar("gen", 2);
+  prefs.putUChar("gen", 3);
   prefs.putBytes("blob", payload, end);
   prefs.end();
   logFa();
