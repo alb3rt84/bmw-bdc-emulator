@@ -14,6 +14,9 @@
 namespace vehicle_fa {
 
 constexpr size_t kMaxFa = 480;
+// PSdZ MCD3_ReadFAFromVCM copies this many bytes out of RDBI_FA.
+// A shorter payload throws ArrayIndexOutOfBoundsException at index 841.
+constexpr size_t kPsdzFaBytes = 842;
 
 /** NVS blob, or the built-in F15 bench order when nothing valid is stored. */
 void load();
@@ -22,8 +25,8 @@ void load();
 size_t copy(uint8_t* out, size_t outMax);
 
 /**
- * Replace the FA. The buffer must be version 3 and the counted E / SA / HO
- * fields must consume it exactly.
+ * Replace the FA. The buffer is version 3. Counted E / SA / HO fields end
+ * the order. Zero bytes after that, up to kPsdzFaBytes, are the E-Sys pad.
  */
 bool store(const uint8_t* data, size_t len);
 

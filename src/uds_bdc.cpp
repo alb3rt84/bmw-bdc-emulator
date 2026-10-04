@@ -93,19 +93,21 @@ size_t handleReadDid(const uint8_t* req, size_t len, uint8_t* out, size_t outMax
   }
 
   // 3F06 — Fahrzeugauftrag. E-Sys service RDBI_FA on VCM 0x10.
+  // The job copies a fixed 842-byte parameter, so the FA is zero-padded.
   if (did == 0x3F06) {
-    if (outMax < 4) return neg(out, outMax, 0x22, 0x10);
+    if (outMax < 3 + vehicle_fa::kPsdzFaBytes) return neg(out, outMax, 0x22, 0x10);
     out[0] = 0x62;
     out[1] = 0x3F;
     out[2] = 0x06;
-    const size_t n = vehicle_fa::copy(out + 3, outMax - 3);
+    memset(out + 3, 0, vehicle_fa::kPsdzFaBytes);
+    const size_t n = vehicle_fa::copy(out + 3, vehicle_fa::kPsdzFaBytes);
     if (n == 0) return neg(out, outMax, 0x22, 0x10);
     char sum[20];
     vehicle_fa::summary(sum);
     char msg[40];
     snprintf(msg, sizeof(msg), "[UDS] FA %s", sum);
     pc_link::noteLine(msg);
-    return 3 + n;
+    return 3 + vehicle_fa::kPsdzFaBytes;
   }
 
   // F186 — ActiveDiagnosticSession

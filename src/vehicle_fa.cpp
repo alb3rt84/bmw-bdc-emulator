@@ -32,19 +32,31 @@ size_t buildDefault(uint8_t* out) {
   return sizeof(kG20Fa);
 }
 
-bool layoutOk(const uint8_t* data, size_t len) {
-  if (!data || len < 24 || len > kMaxFa || data[0] != 0x03) return false;
+// End of the counted version-3 FA, or 0 when the walk does not fit.
+// Bytes after this may be the zero pad E-Sys expects on 22 3F 06.
+size_t faEnd(const uint8_t* data, size_t len) {
+  if (!data || len < 24 || data[0] != 0x03) return 0;
   size_t i = 21;
   const size_t eCount = data[i++];
-  if (i + eCount * 4 > len) return false;
+  if (i + eCount * 4 > len) return 0;
   i += eCount * 4;
-  if (i >= len) return false;
+  if (i >= len) return 0;
   const size_t saCount = data[i++];
-  if (i + saCount * 3 > len) return false;
+  if (i + saCount * 3 > len) return 0;
   i += saCount * 3;
-  if (i >= len) return false;
+  if (i >= len) return 0;
   const size_t hoCount = data[i++];
-  return i + hoCount * 4 == len;
+  if (i + hoCount * 4 > len) return 0;
+  return i + hoCount * 4;
+}
+
+bool layoutOk(const uint8_t* data, size_t len) {
+  const size_t end = faEnd(data, len);
+  if (end == 0 || end > kMaxFa || len > kPsdzFaBytes) return false;
+  for (size_t i = end; i < len; i++) {
+    if (data[i] != 0) return false;
+  }
+  return true;
 }
 
 void fillSummary(const uint8_t* data, char out[20]) {
@@ -133,7 +145,7 @@ void load() {
   size_t useLen = freshLen;
   if (layoutOk(stored, storedLen)) {
     use = stored;
-    useLen = storedLen;
+    useLen = faEnd(stored, storedLen);
   }
 
   portENTER_CRITICAL(&g_mux);
@@ -182,18 +194,22 @@ size_t copy(uint8_t* out, size_t outMax) {
 }
 
 bool store(const uint8_t* data, size_t len) {
-  if (!layoutOk(data, len)) return false;
+  const size_t end = faEnd(data, len);
+  if (end == 0 || end > kMaxFa || len > kPsdzFaBytes) return false;
+  for (size_t i = end; i < len; i++) {
+    if (data[i] != 0) return false;
+  }
   portENTER_CRITICAL(&g_mux);
-  memcpy(g_fa, data, len);
-  g_len = len;
+  memcpy(g_fa, data, end);
+  g_len = end;
   portEXIT_CRITICAL(&g_mux);
   Preferences prefs;
   prefs.begin("bdcfa", false);
   prefs.putUChar("gen", 2);
-  prefs.putBytes("blob", data, len);
+  prefs.putBytes("blob", data, end);
   prefs.end();
   logFa();
-  pc_link::noteFa(data, len);
+  pc_link::noteFa(data, end);
   return true;
 }
 

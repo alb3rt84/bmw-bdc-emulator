@@ -61,7 +61,8 @@ constexpr uint16_t kPtPowerModeRes         = 0x4004;
 constexpr size_t kAnnounceLen = 33;
 // FA is up to 480 bytes. The largest G20 SVK (HU_MGU, 22 F1 01) is 543 bytes
 // including the UDS header, so the cap has to clear that.
-constexpr size_t kUdsRespMax = 640;
+// 62 3F 06 plus the 842-byte FA parameter E-Sys copies.
+constexpr size_t kUdsRespMax = 896;
 
 constexpr uint16_t kLaGateway = uds_bdc::kLogicalAddress;
 constexpr uint16_t kLaTester  = 0x0E00;
@@ -294,7 +295,7 @@ void handleHsfzClient(int client) {
   const int flags = fcntl(client, F_GETFL, 0);
   if (flags >= 0) fcntl(client, F_SETFL, flags & ~O_NONBLOCK);
 
-  uint8_t body[512];
+  uint8_t body[1024];
   pc_link::noteLine("[ENET] HSFZ session on port 6801");
   for (;;) {
     uint8_t hdr[6];
@@ -315,7 +316,7 @@ void handleHsfzClient(int client) {
     const uint8_t dst = body[1];
     const uint8_t* uds = body + 2;
     const size_t udsLen = len - 2;
-    if (udsLen > 500) {
+    if (udsLen > 1000) {
       sendHsfz(client, 0x0044, nullptr, 0);
       continue;
     }
