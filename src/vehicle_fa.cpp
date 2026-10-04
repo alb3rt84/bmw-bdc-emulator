@@ -214,15 +214,10 @@ size_t copy(uint8_t* out, size_t outMax) {
 }
 
 size_t copyWrapped(uint8_t* out, size_t outMax) {
-  uint8_t fa[kMaxFa];
-  const size_t n = copy(fa, sizeof(fa));
-  if (n == 0 || out == nullptr || outMax < 4 + n) return 0;
-  out[0] = (uint8_t)(n >> 8);
-  out[1] = (uint8_t)n;
-  out[2] = 0x03;
-  memcpy(out + 3, fa, n);
-  out[3 + n] = 0;
-  return 4 + n;
+  if (out == nullptr || outMax < kPsdzFaBytes) return 0;
+  memset(out, 0, kPsdzFaBytes);
+  if (copy(out, kPsdzFaBytes) == 0) return 0;
+  return kPsdzFaBytes;
 }
 
 bool store(const uint8_t* data, size_t len) {

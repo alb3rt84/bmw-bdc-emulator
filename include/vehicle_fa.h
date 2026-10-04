@@ -14,8 +14,8 @@
 namespace vehicle_fa {
 
 constexpr size_t kMaxFa = 480;
-// Largest 22 3F 06 body we accept on a write, including a wrapper.
-constexpr size_t kPsdzFaBytes = 842;
+// E-Sys indexes byte 842 of the 22 3F 06 payload, so the buffer is one past that.
+constexpr size_t kPsdzFaBytes = 843;
 
 /** NVS blob, or the built-in F15 bench order when nothing valid is stored. */
 void load();
@@ -24,15 +24,15 @@ void load();
 size_t copy(uint8_t* out, size_t outMax);
 
 /**
- * 22 3F 06 body. E-Sys reads a big-endian length from bytes 0–1 and copies
- * that many bytes starting at byte 3, then reads the following byte.
- * Byte 2 is the FA version. @return wrapped length, or 0 when outMax is too small.
+ * 22 3F 06 body: version-3 order at byte 0 (Zeitkriterium at byte 9),
+ * then zeros through byte 842. @return kPsdzFaBytes, or 0 when outMax is too small.
  */
 size_t copyWrapped(uint8_t* out, size_t outMax);
 
 /**
- * Replace the FA. Accepts the bare version-3 order, or the wrapped form
- * answered on 22 3F 06. The stored bytes are the bare order.
+ * Replace the FA. Accepts the bare version-3 order. Zeros after it, up to
+ * kPsdzFaBytes, are the E-Sys pad. A length-prefixed body is accepted too.
+ * The stored bytes are the bare order.
  */
 bool store(const uint8_t* data, size_t len);
 
