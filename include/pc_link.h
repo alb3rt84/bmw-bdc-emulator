@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 namespace pc_link {
 
 bool init();
