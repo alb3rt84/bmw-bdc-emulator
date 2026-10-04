@@ -4,6 +4,7 @@
  */
 
 #include "doip_server.h"
+#include "bench_vin.h"
 #include "config.h"
 #include "kcan_gw.h"
 #include "pc_link.h"
@@ -62,10 +63,9 @@ int  g_hsfzUdp  = -1;
 
 // ZGW Search parses this exact 50-byte layout:
 // DIAGADR10 + BMWMAC + 12 hex digits + BMWVIN + 17-character VIN.
-static const char kBenchVin[] = BENCH_VIN;
-static_assert(sizeof(kBenchVin) == 18, "bench VIN must be 17 characters");
-
 void buildVehicleIdent(uint8_t out[50]) {
+  char vin[18];
+  bench_vin::copy(vin);
   memcpy(out, "DIAGADR10BMWMAC", 15);
   const String mac = ETH.macAddress();
   size_t hex = 0;
@@ -78,7 +78,7 @@ void buildVehicleIdent(uint8_t out[50]) {
   }
   while (hex < 12) out[15 + hex++] = '0';
   memcpy(out + 27, "BMWVIN", 6);
-  memcpy(out + 33, kBenchVin, 17);
+  memcpy(out + 33, vin, 17);
 }
 
 void writeU16Be(uint8_t* p, uint16_t v) {
@@ -111,7 +111,9 @@ size_t buildHeader(uint8_t* out, uint16_t payloadType, uint32_t payloadLen) {
 }
 
 size_t buildVehicleAnnounce(uint8_t* payload) {
-  memcpy(payload, BENCH_VIN, 17);
+  char vin[18];
+  bench_vin::copy(vin);
+  memcpy(payload, vin, 17);
   writeU16Be(payload + 17, kLaGateway);
   uint8_t mac[6] = {};
   ETH.macAddress(mac);
@@ -627,8 +629,10 @@ void hsfzUdpTask(void* /*arg*/) {
         vTaskDelay(pdMS_TO_TICKS(500));
         continue;
       }
+      char vin[18];
+      bench_vin::copy(vin);
       notef("[ENET] ZGW search listening UDP :%u VIN %s",
-            ENET_HSFZ_UDP_PORT, kBenchVin);
+            ENET_HSFZ_UDP_PORT, vin);
     }
 
     uint8_t buf[128];
@@ -645,9 +649,11 @@ void hsfzUdpTask(void* /*arg*/) {
           ((ctrl == 0x0011 && len == 0) || ctrl == 0x0012 || n <= 8);
       if (request) {
         sendVehicleIdent(from);
+        char vin[18];
+        bench_vin::copy(vin);
         notef("[ENET] ZGW search from %s:%u -> VIN %s",
               inet_ntoa(from.sin_addr), (unsigned)ntohs(from.sin_port),
-              kBenchVin);
+              vin);
       }
     }
     if (millis() - lastAnnounce > 2000) {

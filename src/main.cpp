@@ -10,6 +10,7 @@
 
 #include <Arduino.h>
 
+#include "bench_vin.h"
 #include "bmw_frames.h"
 #include "can_bus.h"
 #include "config.h"
@@ -57,6 +58,7 @@ void setup() {
     Serial.println(F("[FATAL] No CAN controller available"));
   }
 
+  bench_vin::load();
   uds_bdc::init();
   kcan_gw::init();
   obd_can::init();

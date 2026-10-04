@@ -15,7 +15,7 @@ ESP32 wysyła na MCP2515 jedną ramkę, co 100 ms:
 | wyłączony | włączony | `44` |
 | włączony | włączony | `45` |
 
-Połączenie to UDP na `169.254.1.20:13401` (adres ETH01). W logu widać zdarzenia Ethernetu i ramki CAN odebrane przez MCP2515.
+Połączenie to UDP na `169.254.1.20:13401` (adres ETH01). W polu VIN wpisuje się 17 znaków, które emulator nadaje w identyfikacji ENET, DoIP i w DID F190. W logu widać zdarzenia Ethernetu i ramki CAN odebrane przez MCP2515.
 
 ```bat
 cd pc_companion

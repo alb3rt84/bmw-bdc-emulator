@@ -55,6 +55,7 @@ class App(tk.Tk):
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._ignore_switch = False
+        self._vin_armed = False
 
         top = ttk.Frame(self)
         top.pack(fill="x", padx=10, pady=8)
@@ -65,6 +66,17 @@ class App(tk.Tk):
         self.conn_btn.pack(side="left")
         self.status = tk.StringVar(value="Rozłączony")
         ttk.Label(top, textvariable=self.status).pack(side="left", padx=10)
+
+        vin_box = ttk.LabelFrame(self, text="VIN nadawany przy identyfikacji")
+        vin_box.pack(fill="x", padx=10, pady=4)
+        row = ttk.Frame(vin_box)
+        row.pack(fill="x", padx=8, pady=8)
+        ttk.Label(row, text="VIN").pack(side="left")
+        self.vin_var = tk.StringVar(value="WBA00000200000000")
+        ttk.Entry(row, textvariable=self.vin_var, width=22, font=("Consolas", 12)).pack(side="left", padx=8)
+        ttk.Button(row, text="Nadawaj", command=self._send_vin).pack(side="left")
+        self.vin_status = tk.StringVar(value="17 znaków, bez I, O i Q")
+        ttk.Label(vin_box, textvariable=self.vin_status).pack(anchor="w", padx=8, pady=(0, 6))
 
         clamps = ttk.LabelFrame(self, text="Ramka 0x12F na MCP2515")
         clamps.pack(fill="x", padx=10, pady=4)
@@ -145,6 +157,18 @@ class App(tk.Tk):
         except OSError as exc:
             self._append(f"Błąd wysyłki: {exc}")
 
+    def _send_vin(self) -> None:
+        if self._link is None:
+            messagebox.showinfo(APP_TITLE, "Najpierw połącz z emulatorem.")
+            return
+        vin = "".join(self.vin_var.get().split()).upper()
+        self.vin_var.set(vin)
+        if len(vin) != 17 or any(c in "IOQ" or not c.isalnum() for c in vin):
+            messagebox.showerror(APP_TITLE, "VIN ma mieć 17 znaków, bez liter I, O i Q.")
+            return
+        self._vin_armed = True
+        self._send_raw({"cmd": "vin", "vin": vin})
+
     def _send_clamps(self) -> None:
         if self._ignore_switch:
             return
@@ -189,10 +213,22 @@ class App(tk.Tk):
             self._append("MCP  " + str(obj.get("msg", "")))
             return
         if obj.get("ok") == 1 and "kl30" in obj and "kl15" in obj:
-            self.status.set(f"KL30={'ON' if obj['kl30'] else 'OFF'}  KL15={'ON' if obj['kl15'] else 'OFF'}")
+            vin = str(obj.get("vin", ""))
+            self.status.set(
+                f"KL30={'ON' if obj['kl30'] else 'OFF'}  KL15={'ON' if obj['kl15'] else 'OFF'}"
+            )
+            if vin:
+                self.vin_status.set(f"Emulator nadaje {vin}")
+            if self._vin_armed and vin:
+                self._vin_armed = False
+                self._append(f"VIN ustawiony: {vin}")
             return
         if obj.get("ok") == 0:
-            self._append("ZGW  " + str(obj.get("err", line)))
+            err = str(obj.get("err", line))
+            self._append("ZGW  " + err)
+            if err == "bad_vin":
+                self._vin_armed = False
+                messagebox.showerror(APP_TITLE, "Emulator odrzucił VIN.")
 
     def _heartbeat(self) -> None:
         if self._link is not None:

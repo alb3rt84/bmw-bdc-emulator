@@ -16,6 +16,7 @@
  */
 
 #include "pc_link.h"
+#include "bench_vin.h"
 #include "bmw_frames.h"
 #include "config.h"
 
@@ -70,6 +71,28 @@ int parseIntField(const char* json, const char* key, bool* found) {
   return (int)lroundf(parseFloatField(json, key, found));
 }
 
+bool parseStringField(const char* json, const char* key, char* out, size_t outLen) {
+  if (!out || outLen == 0) return false;
+  out[0] = '\0';
+  char pat[32];
+  snprintf(pat, sizeof(pat), "\"%s\"", key);
+  const char* p = strstr(json, pat);
+  if (!p) return false;
+  p = strchr(p + strlen(pat), ':');
+  if (!p) return false;
+  p = strchr(p, '"');
+  if (!p) return false;
+  ++p;
+  size_t n = 0;
+  while (p[n] && p[n] != '"' && n + 1 < outLen) {
+    out[n] = p[n];
+    n++;
+  }
+  if (p[n] != '"') return false;
+  out[n] = '\0';
+  return true;
+}
+
 const char* parseCmd(const char* json) {
   const char* p = strstr(json, "\"cmd\"");
   if (!p) return nullptr;
@@ -109,8 +132,10 @@ void enqueue(const char* line, bool eth) {
 
 void replyStatus(Print& out) {
   const bmw::LiveSignals s = bmw::getSignals();
-  out.printf("{\"ok\":1,\"kl30\":%d,\"kl15\":%d}\n",
-             s.kl30On ? 1 : 0, s.ignitionOn ? 1 : 0);
+  char vin[18];
+  bench_vin::copy(vin);
+  out.printf("{\"ok\":1,\"kl30\":%d,\"kl15\":%d,\"vin\":\"%s\"}\n",
+             s.kl30On ? 1 : 0, s.ignitionOn ? 1 : 0, vin);
 }
 
 void sendUdpLine(const char* line) {
@@ -140,6 +165,16 @@ void handleLine(const char* line, Print& out) {
   }
 
   if (cmdEquals(cmd, "ping") || cmdEquals(cmd, "get")) {
+    replyStatus(out);
+    return;
+  }
+
+  if (cmdEquals(cmd, "vin")) {
+    char vin[20];
+    if (!parseStringField(line, "vin", vin, sizeof(vin)) || !bench_vin::set(vin)) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_vin\"}"));
+      return;
+    }
     replyStatus(out);
     return;
   }

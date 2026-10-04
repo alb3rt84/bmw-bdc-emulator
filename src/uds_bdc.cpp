@@ -8,6 +8,7 @@
  */
 
 #include "uds_bdc.h"
+#include "bench_vin.h"
 #include "bmw_frames.h"
 #include "config.h"
 
@@ -19,13 +20,6 @@ namespace uds_bdc {
 namespace {
 
 uint8_t g_session = 0x01;  // defaultSession
-
-// Same VIN HSFZ and DoIP announce. I and O are not legal in a VIN.
-const char kVin[17] = {
-    BENCH_VIN[0],  BENCH_VIN[1],  BENCH_VIN[2],  BENCH_VIN[3],  BENCH_VIN[4],
-    BENCH_VIN[5],  BENCH_VIN[6],  BENCH_VIN[7],  BENCH_VIN[8],  BENCH_VIN[9],
-    BENCH_VIN[10], BENCH_VIN[11], BENCH_VIN[12], BENCH_VIN[13], BENCH_VIN[14],
-    BENCH_VIN[15], BENCH_VIN[16]};
 
 size_t neg(uint8_t* out, size_t outMax, uint8_t sid, uint8_t nrc) {
   if (outMax < 3) return 0;
@@ -82,7 +76,9 @@ size_t handleReadDid(const uint8_t* req, size_t len, uint8_t* out, size_t outMax
     out[0] = 0x62;
     out[1] = 0xF1;
     out[2] = 0x90;
-    memcpy(out + 3, kVin, 17);
+    char vin[18];
+    bench_vin::copy(vin);
+    memcpy(out + 3, vin, 17);
     return 3 + 17;
   }
 
