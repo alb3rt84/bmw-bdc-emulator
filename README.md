@@ -8,7 +8,7 @@ ESP32-based Body Domain Controller / Central Gateway emulator for **on-the-table
 |-----------|----------------|
 | **CAN1** | ESP32 TWAI @ 500 kbit/s — cyclic wake frames |
 | **CAN2** | MCP2515 @ 500 kbit/s — ENET converter to the module |
-| **KL30 / KL15** | MCP2515 cyclic `0x12F` every 100 ms, switches from the PC window |
+| **KL30 / KL15** | MCP2515 cyclic `0x12F` every 100 ms. KL15 is also the ENET ignition byte on TCP **6811** |
 | **Live signals** | RPM `0x0A5`, Speed `0x1A1`, Coolant `0x1D0`, Fuel `0x349` (editable) |
 | **LIN Master** | UART2 @ 19200 + break/header scheduler (TJA1020) |
 | **DoIP** | LAN8720A Ethernet, TCP/UDP port **13400** → shared UDS BDC |
@@ -49,7 +49,7 @@ One UDS server (`uds_bdc`) answers on both media:
 | Path | Addressing | Services (initial) |
 |------|------------|--------------------|
 | **CAN OBD** | BMW ISO-TP: req `0x6F1` + `ecu=0x10`, resp `0x610` | `0x10` session, `0x3E` tester present, `0x22` DID (`F190` VIN, `F186` session, `F18C` SN, `0100` live signals), `0x14`/`0x19` DTC stubs |
-| **ENET** | TCP **6801** (HSFZ). Tester `0xF4`, ECU address in the HSFZ target byte | Address `0x10` answered locally. Any other address is copied to the module K-CAN as `0x6F1` and the answer goes back to the tester |
+| **ENET** | TCP **6801** diagnostics, TCP **6811** ignition. Tester `0xF4` | Address `0x10` answered locally. UDS `22 F1 90` (VIN) is answered locally for every address. Anything else is copied to the module K-CAN as `0x6F1` |
 | **DoIP** | LA `0x0010`, TCP/UDP `:13400` | Same UDS handler, plus the same K-CAN forward for other logical addresses |
 
 The module under test sits on the MCP2515 plugged into the WT32-ETH01 header. Silkscreen: **IO15 = CS, IO14 = SCK, IO4 = MOSI, IO35 = MISO**, VCC on **5V**, common **GND**. INT stays open. ISTA addresses other than `0x10` are copied to that bus as `0x6F1` and the answer on `0x600|ecu` goes back over ENET. BATT48 on K-CAN8 is 500. ESP32 address **169.254.1.20**, mask **255.255.0.0**, VIN **WBA00000200000000**. With `HostIdentService = 255.255.255.255` EDIABAS sends six bytes `00 00 00 00 00 11` as a global broadcast on UDP **6811** and waits `TimeoutIdentService` (2 s in the bench ini). `VehicleProtocol = HSFZ,DoIP` keeps whichever answer arrives first, so both announcements use VIN **WBA00000200000000** and gateway address `0x0010`. The ESP32 still owns **169.254.1.20/16** and answers a tester on any other address on that cable. The reply must contain the text `DIAGADR`, `BMWMAC` and `BMWVIN`; the tool takes the IP from the sender of that reply. The laptop Ethernet adapter therefore has to show an address starting with `169.254` (automatic is enough; wait until it appears). The serial monitor should print `[ETH] Link up` and `[ENET] ZGW search listening UDP :6811`. Diagnostics then use TCP **6801**.
@@ -82,7 +82,7 @@ Details: [`pc_companion/README.md`](pc_companion/README.md).
 |----|--------|---------|------------------|
 | `0x12F` | 100 ms | Klemmen KL30 + KL15 | `45 FF 45 FF FF FF FF FF` |
 
-The PC window (`pc_companion/gui_app.py`) switches KL30 and KL15. KL30 only is byte `41`, KL15 only is byte `44`, both off is byte `00` (bytes 0 and 2).
+The PC window (`pc_companion/gui_app.py`) switches KL30 and KL15. KL30 only is byte `41`, KL15 only is byte `44`, both off is byte `00` (bytes 0 and 2). ISTA reads ignition on ENET TCP **6811** with `00 00 00 00 00 10` and expects `00 00 00 01 00 10` plus `04` (KL15 on) or `00` (KL15 off). The same answer is given if that control word arrives on TCP 6801. The KL30 switch changes CAN `0x12F`. The VIN typed in the window is the one in the ENET/DoIP announcement and in UDS F190 for every ECU address, which is what ISTA uses for automatic identification. It has to be the full 17-character VIN.
 
 ## FreeRTOS mapping
 

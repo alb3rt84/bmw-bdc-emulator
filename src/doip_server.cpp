@@ -5,6 +5,7 @@
 
 #include "doip_server.h"
 #include "bench_vin.h"
+#include "bmw_frames.h"
 #include "config.h"
 #include "kcan_gw.h"
 #include "pc_link.h"
@@ -51,6 +52,12 @@ constexpr uint16_t kPtRoutingActivationRes = 0x0006;
 constexpr uint16_t kPtDiagnosticMessage    = 0x8001;
 constexpr uint16_t kPtDiagnosticMessageAck = 0x8002;
 constexpr uint16_t kPtDiagnosticMessageNack = 0x8003;
+constexpr uint16_t kPtPowerModeReq         = 0x4003;
+constexpr uint16_t kPtPowerModeRes         = 0x4004;
+
+// ISO 13400 announcement is 33 bytes once the VIN/GID sync byte is included.
+// EDIABAS drops a shorter DoIP reply and then has no VIN.
+constexpr size_t kAnnounceLen = 33;
 
 constexpr uint16_t kLaGateway = uds_bdc::kLogicalAddress;
 constexpr uint16_t kLaTester  = 0x0E00;
@@ -119,8 +126,9 @@ size_t buildVehicleAnnounce(uint8_t* payload) {
   ETH.macAddress(mac);
   memcpy(payload + 19, mac, 6);
   memcpy(payload + 25, mac, 6);
-  payload[31] = 0x00;
-  return 32;
+  payload[31] = 0x00;  // further action: none
+  payload[32] = 0x00;  // VIN and GID are synchronized
+  return kAnnounceLen;
 }
 
 struct netif* ethNetif() {
@@ -154,6 +162,15 @@ void sendUdp(const uint8_t* data, size_t len, const sockaddr_in& to) {
   sendOnCable(g_udpSock, data, len, to);
 }
 
+// ISTA polls KL15 often. Log only when the switch position changes.
+void logKl15(bool on, const char* via) {
+  static int last = -1;
+  const int now = on ? 1 : 0;
+  if (last == now) return;
+  last = now;
+  notef("[ENET] KL15 %s via %s", on ? "ON" : "OFF", via);
+}
+
 void handleUdpDiscovery() {
   uint8_t buf[256];
   sockaddr_in from = {};
@@ -163,13 +180,21 @@ void handleUdpDiscovery() {
   if (n < 8) return;
 
   const uint16_t ptype = readU16Be(buf + 2);
+  if (ptype == kPtPowerModeReq) {
+    uint8_t resp[9];
+    buildHeader(resp, kPtPowerModeRes, 1);
+    resp[8] = bmw::getSignals().ignitionOn ? 0x01 : 0x00;
+    sendUdp(resp, sizeof(resp), from);
+    logKl15(resp[8] == 0x01, "DoIP");
+    return;
+  }
   if (ptype != kPtVehicleIdentReq && ptype != kPtVehicleIdentReqEin &&
       ptype != kPtVehicleIdentReqVin) {
     return;
   }
 
-  uint8_t resp[8 + 32];
-  buildHeader(resp, kPtVehicleAnnounce, 32);
+  uint8_t resp[8 + kAnnounceLen];
+  buildHeader(resp, kPtVehicleAnnounce, kAnnounceLen);
   buildVehicleAnnounce(resp + 8);
   sendUdp(resp, sizeof(resp), from);
   Serial.println(F("[DoIP] Vehicle Identification Response sent"));
@@ -225,6 +250,36 @@ bool sendHsfz(int fd, uint16_t ctrl, const uint8_t* body, size_t bodyLen) {
   return sendFull(fd, body, bodyLen);
 }
 
+// HSFZ control words that are not a diagnostic request.
+// 0x0010 is how EDIABAS reads ignition: it opens TCP on the control port
+// (6811, the same number as the UDP ident port) and sends 00 00 00 00 00 10.
+// The 7-byte reply is 00 00 00 01 00 10 plus one status byte. Bits 3–2 equal
+// to 01 (value 0x04) mean KL15 on.
+bool serveHsfzControl(int client, uint16_t ctrl, uint32_t len) {
+  if (ctrl == 0x0012) {
+    const uint8_t alive[2] = {uds_bdc::kCanEcuAddr, 0xF4};
+    sendHsfz(client, 0x0012, alive, sizeof(alive));
+    return true;
+  }
+  if (ctrl == 0x0011 && len == 0) {
+    uint8_t ident[50];
+    buildVehicleIdent(ident);
+    sendHsfz(client, 0x0011, ident, sizeof(ident));
+    char vin[18];
+    bench_vin::copy(vin);
+    notef("[ENET] ident VIN %s", vin);
+    return true;
+  }
+  if (ctrl == 0x0010) {
+    const bool on = bmw::getSignals().ignitionOn;
+    const uint8_t st = on ? 0x04 : 0x00;
+    sendHsfz(client, 0x0010, &st, 1);
+    logKl15(on, "HSFZ");
+    return true;
+  }
+  return false;
+}
+
 // BMW ENET: TCP 6801, HSFZ. Tester (usually 0xF4) sends control 0x0001.
 // Gateway echoes control 0x0002, then answers with control 0x0001 and
 // source/target swapped. Address byte is the same one used on CAN 0x6F1.
@@ -246,17 +301,7 @@ void handleHsfzClient(int client) {
     if (len > sizeof(body)) break;
     if (len > 0 && !recvFull(client, body, len)) break;
 
-    if (ctrl == 0x0012) {
-      const uint8_t alive[2] = {uds_bdc::kCanEcuAddr, 0xF4};
-      sendHsfz(client, 0x0012, alive, sizeof(alive));
-      continue;
-    }
-    if (ctrl == 0x0011 && len == 0) {
-      uint8_t ident[50];
-      buildVehicleIdent(ident);
-      sendHsfz(client, 0x0011, ident, sizeof(ident));
-      continue;
-    }
+    if (serveHsfzControl(client, ctrl, len)) continue;
     if (ctrl != 0x0001 || len < 2) {
       Serial.printf("[ENET] ctrl 0x%04X len %u\n", ctrl, (unsigned)len);
       continue;
@@ -274,9 +319,15 @@ void handleHsfzClient(int client) {
     sendHsfz(client, 0x0002, body, len);
 
     uint8_t resp[256];
-    size_t respLen = 0;
+    size_t respLen = uds_bdc::answerVin(uds, udsLen, resp, sizeof(resp));
     uint8_t respSrc = dst;
-    if (dst == uds_bdc::kCanEcuAddr) {
+    if (respLen > 0) {
+      // Functional 0xDF has no address of its own. Answer as the gateway.
+      if (dst == 0xDF) respSrc = uds_bdc::kCanEcuAddr;
+      char vin[18];
+      bench_vin::copy(vin);
+      notef("[UDS] VIN %s for 0x%02X", vin, dst);
+    } else if (dst == uds_bdc::kCanEcuAddr) {
       respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
     } else {
       uint8_t from = dst;
@@ -318,6 +369,15 @@ void handleTcpClient(int client) {
 
     const uint16_t ptype = readU16Be(buf + 2);
     const uint32_t plen  = readU32Be(buf + 4);
+
+    if (ptype == kPtPowerModeReq) {
+      uint8_t resp[9];
+      buildHeader(resp, kPtPowerModeRes, 1);
+      resp[8] = bmw::getSignals().ignitionOn ? 0x01 : 0x00;
+      send(client, resp, sizeof(resp), 0);
+      logKl15(resp[8] == 0x01, "DoIP");
+      continue;
+    }
 
     if (ptype == kPtRoutingActivationReq) {
       uint8_t resp[8 + 9] = {};
@@ -361,10 +421,15 @@ void handleTcpClient(int client) {
       send(client, ack, sizeof(ack), 0);
 
       uint8_t resp[256];
-      size_t respLen = 0;
+      size_t respLen = uds_bdc::answerVin(uds, udsLen, resp, sizeof(resp));
       uint16_t respSa = ta;
 
-      if (toBdc) {
+      if (respLen > 0) {
+        respSa = (toBdc || functional) ? kLaGateway : ta;
+        char vin[18];
+        bench_vin::copy(vin);
+        notef("[UDS] VIN %s for LA 0x%04X", vin, ta);
+      } else if (toBdc) {
         respLen = uds_bdc::handleRequest(uds, udsLen, resp, sizeof(resp));
         respSa = kLaGateway;
       } else {
@@ -459,6 +524,7 @@ void onEthEvent(WiFiEvent_t event) {
 #endif
 
 void hsfzUdpTask(void* arg);
+void hsfzControlTask(void* arg);
 
 bool beginEthernet(int phyAddr, int powerPin, eth_clock_mode_t clock) {
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
@@ -562,7 +628,78 @@ bool init() {
   // The diagnostic TCP session must not delay that answer.
   xTaskCreatePinnedToCore(hsfzUdpTask, "zgw_udp", 8192, nullptr, TASK_PRIO_CAN_RX,
                           nullptr, TASK_CORE_NET);
+  xTaskCreatePinnedToCore(hsfzControlTask, "zgw_kl15", 8192, nullptr, TASK_PRIO_DOIP,
+                          nullptr, TASK_CORE_NET);
   return true;
+}
+
+// EDIABAS keeps this TCP session open and repeats the ignition request on it.
+// It must not run inside the diagnostic task, or port 6801 stops accepting.
+void handleHsfzControlClient(int client) {
+  timeval tv = {};
+  tv.tv_sec = 120;
+  setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  const int flags = fcntl(client, F_GETFL, 0);
+  if (flags >= 0) fcntl(client, F_SETFL, flags & ~O_NONBLOCK);
+
+  uint8_t body[64];
+  for (;;) {
+    uint8_t hdr[6];
+    if (!recvFull(client, hdr, 6)) break;
+    const uint32_t len = ((uint32_t)hdr[0] << 24) | ((uint32_t)hdr[1] << 16) |
+                         ((uint32_t)hdr[2] << 8) | hdr[3];
+    const uint16_t ctrl = (uint16_t)((hdr[4] << 8) | hdr[5]);
+    if (len > sizeof(body)) break;
+    if (len > 0 && !recvFull(client, body, len)) break;
+    if (!serveHsfzControl(client, ctrl, len)) {
+      Serial.printf("[ENET] control 0x%04X len %u\n", ctrl, (unsigned)len);
+    }
+  }
+  close(client);
+  pc_link::noteLine("[ENET] control session closed");
+}
+
+void hsfzControlTask(void* /*arg*/) {
+  for (;;) {
+    if (!ETH.linkUp()) {
+      vTaskDelay(pdMS_TO_TICKS(200));
+      continue;
+    }
+    const int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (fd < 0) {
+      vTaskDelay(pdMS_TO_TICKS(500));
+      continue;
+    }
+    int reuse = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    sockaddr_in addr = {};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(ENET_HSFZ_UDP_PORT);
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bind(fd, (sockaddr*)&addr, sizeof(addr)) != 0 || listen(fd, 2) != 0) {
+      notef("[ENET] TCP %u bind failed", (unsigned)ENET_HSFZ_UDP_PORT);
+      close(fd);
+      vTaskDelay(pdMS_TO_TICKS(1000));
+      continue;
+    }
+    notef("[ENET] KL15 listening TCP :%u", (unsigned)ENET_HSFZ_UDP_PORT);
+    for (;;) {
+      if (!ETH.linkUp()) break;
+      fd_set rfds;
+      FD_ZERO(&rfds);
+      FD_SET(fd, &rfds);
+      timeval wait = {};
+      wait.tv_sec = 1;
+      if (select(fd + 1, &rfds, nullptr, nullptr, &wait) <= 0) continue;
+      sockaddr_in ca = {};
+      socklen_t cal = sizeof(ca);
+      const int client = accept(fd, (sockaddr*)&ca, &cal);
+      if (client < 0) continue;
+      notef("[ENET] control %s", inet_ntoa(ca.sin_addr));
+      handleHsfzControlClient(client);
+    }
+    close(fd);
+  }
 }
 
 void sendVehicleIdent(const sockaddr_in& to) {

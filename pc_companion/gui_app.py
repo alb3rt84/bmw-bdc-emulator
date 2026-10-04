@@ -16,6 +16,22 @@ APP_TITLE = "ZGW Emulator"
 UDP_PORT = 13401
 DEFAULT_IP = "169.254.1.20"
 
+_VIN_VAL = {str(i): i for i in range(10)}
+_VIN_VAL.update(zip("ABCDEFGH", range(1, 9)))
+_VIN_VAL.update(zip("JKLMN", (1, 2, 3, 4, 5)))
+_VIN_VAL.update({"P": 7, "R": 9})
+_VIN_VAL.update(zip("STUVWXYZ", (2, 3, 4, 5, 6, 7, 8, 9)))
+_VIN_WEIGHT = (8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2)
+
+
+def vin_check_digit_ok(vin: str) -> bool:
+    if len(vin) != 17 or any(c not in _VIN_VAL for c in vin):
+        return False
+    total = sum(_VIN_VAL[c] * w for c, w in zip(vin, _VIN_WEIGHT))
+    rem = total % 11
+    expect = "X" if rem == 10 else str(rem)
+    return vin[8] == expect
+
 
 class UdpLink:
     def __init__(self, host: str, port: int = UDP_PORT) -> None:
@@ -75,7 +91,9 @@ class App(tk.Tk):
         self.vin_var = tk.StringVar(value="WBA00000200000000")
         ttk.Entry(row, textvariable=self.vin_var, width=22, font=("Consolas", 12)).pack(side="left", padx=8)
         ttk.Button(row, text="Nadawaj", command=self._send_vin).pack(side="left")
-        self.vin_status = tk.StringVar(value="17 znaków, bez I, O i Q")
+        self.vin_status = tk.StringVar(
+            value="Pełne 17 znaków VIN auta. Nagłówek ISTA pokazuje ostatnie 7."
+        )
         ttk.Label(vin_box, textvariable=self.vin_status).pack(anchor="w", padx=8, pady=(0, 6))
 
         clamps = ttk.LabelFrame(self, text="Ramka 0x12F na MCP2515")
@@ -90,7 +108,7 @@ class App(tk.Tk):
         ).pack(side="left", padx=16, pady=8)
         ttk.Label(
             clamps,
-            text="Oba włączone: 45 FF 45 FF FF FF FF FF",
+            text="Oba włączone: 45 FF 45 FF FF FF FF FF.  KL15 dla ISTA: ENET TCP 6811.",
         ).pack(side="left", padx=8)
 
         log_frame = ttk.LabelFrame(self, text="Log Ethernet i ramki MCP2515")
@@ -166,6 +184,11 @@ class App(tk.Tk):
         if len(vin) != 17 or any(c in "IOQ" or not c.isalnum() for c in vin):
             messagebox.showerror(APP_TITLE, "VIN ma mieć 17 znaków, bez liter I, O i Q.")
             return
+        if not vin_check_digit_ok(vin):
+            messagebox.showwarning(
+                APP_TITLE,
+                "9. znak VIN nie jest poprawną cyfrą kontrolną. ISTA odrzuci ten numer i poprosi o wpisanie go jeszcze raz.",
+            )
         self._vin_armed = True
         self._send_raw({"cmd": "vin", "vin": vin})
 
