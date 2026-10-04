@@ -242,6 +242,25 @@ bool sendFull(int fd, const uint8_t* src, size_t n) {
   return true;
 }
 
+// ISTA and E-Sys read the vehicle from the VCM (address 0x10, backup 0x40).
+// A rejected read is written to the PC log so the DID is visible.
+void logVcmRead(uint8_t addr, const uint8_t* uds, size_t udsLen,
+                const uint8_t* resp, size_t respLen) {
+  if (addr != 0x10 && addr != 0x40) return;
+  if (!uds || udsLen == 0 || !resp || respLen < 3 || resp[0] != 0x7F) return;
+  if (uds[0] == 0x3E) return;
+  char msg[96];
+  int n = snprintf(msg, sizeof(msg), "[VCM] %02X", addr);
+  const size_t show = udsLen < 6 ? udsLen : 6;
+  for (size_t i = 0; i < show && n > 0 && n < (int)sizeof(msg) - 4; i++) {
+    n += snprintf(msg + n, sizeof(msg) - (size_t)n, " %02X", uds[i]);
+  }
+  if (n > 0 && n < (int)sizeof(msg) - 10) {
+    snprintf(msg + n, sizeof(msg) - (size_t)n, " NRC %02X", resp[2]);
+  }
+  pc_link::noteLine(msg);
+}
+
 bool sendHsfz(int fd, uint16_t ctrl, const uint8_t* body, size_t bodyLen) {
   uint8_t hdr[6];
   hdr[0] = (uint8_t)((bodyLen >> 24) & 0xFF);
@@ -353,6 +372,7 @@ void handleHsfzClient(int client) {
       }
     }
     if (respLen == 0) continue;
+    logVcmRead(dst == 0xDF ? uds_bdc::kCanEcuAddr : dst, uds, udsLen, resp, respLen);
 
     uint8_t out[2 + kUdsRespMax];
     out[0] = respSrc;
@@ -470,6 +490,8 @@ void handleTcpClient(int client) {
       }
 
       if (respLen > 0) {
+        const uint8_t vcmAddr = (respSa <= 0x00FF) ? (uint8_t)respSa : uds_bdc::kCanEcuAddr;
+        logVcmRead(vcmAddr, uds, udsLen, resp, respLen);
         sendDiagnosticResponse(client, respSa, sa, resp, respLen);
       }
     }
