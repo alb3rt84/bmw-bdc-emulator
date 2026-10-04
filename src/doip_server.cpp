@@ -294,7 +294,7 @@ void handleHsfzClient(int client) {
   const int flags = fcntl(client, F_GETFL, 0);
   if (flags >= 0) fcntl(client, F_SETFL, flags & ~O_NONBLOCK);
 
-  uint8_t body[258];
+  uint8_t body[512];
   pc_link::noteLine("[ENET] HSFZ session on port 6801");
   for (;;) {
     uint8_t hdr[6];
@@ -315,7 +315,7 @@ void handleHsfzClient(int client) {
     const uint8_t dst = body[1];
     const uint8_t* uds = body + 2;
     const size_t udsLen = len - 2;
-    if (udsLen > 256) {
+    if (udsLen > 500) {
       sendHsfz(client, 0x0044, nullptr, 0);
       continue;
     }

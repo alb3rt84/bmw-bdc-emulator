@@ -193,6 +193,7 @@ bool store(const uint8_t* data, size_t len) {
   prefs.putBytes("blob", data, len);
   prefs.end();
   logFa();
+  pc_link::noteFa(data, len);
   return true;
 }
 

@@ -24,6 +24,7 @@
 #include "bmw_frames.h"
 #include "config.h"
 #include "vehicle_fa.h"
+#include "vehicle_svt.h"
 
 #include <Arduino.h>
 #include <ETH.h>
@@ -146,8 +147,18 @@ void replyStatus(Print& out) {
   const bmw::LiveSignals s = bmw::getSignals();
   char vin[18];
   bench_vin::copy(vin);
-  out.printf("{\"ok\":1,\"kl30\":%d,\"kl15\":%d,\"vin\":\"%s\"}\n",
-             s.kl30On ? 1 : 0, s.ignitionOn ? 1 : 0, vin);
+  uint8_t blob[vehicle_fa::kMaxFa];
+  const size_t n = vehicle_fa::copy(blob, sizeof(blob));
+  static char hex[vehicle_fa::kMaxFa * 2 + 1];
+  for (size_t i = 0; i < n; i++) {
+    snprintf(hex + i * 2, 3, "%02X", blob[i]);
+  }
+  hex[n * 2] = '\0';
+  char sum[20];
+  vehicle_fa::summary(sum);
+  out.printf(
+      "{\"ok\":1,\"kl30\":%d,\"kl15\":%d,\"vin\":\"%s\",\"km\":%u,\"fa\":\"%s\",\"fahex\":\"%s\"}\n",
+      s.kl30On ? 1 : 0, s.ignitionOn ? 1 : 0, vin, (unsigned)bmw::odometerKm(), sum, hex);
 }
 
 void sendUdpLine(const char* line) {
@@ -260,6 +271,83 @@ void handleLine(const char* line, Print& out) {
     return;
   }
 
+  if (cmdEquals(cmd, "km")) {
+    bool found = false;
+    const int km = parseIntField(line, "km", &found);
+    if (!found || km < 0 || !bmw::setOdometer((uint32_t)km)) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_km\"}"));
+      return;
+    }
+    replyStatus(out);
+    return;
+  }
+
+  if (cmdEquals(cmd, "svt_begin")) {
+    vehicle_svt::beginReplace();
+    out.println(F("{\"ok\":1,\"svt\":\"begin\"}"));
+    return;
+  }
+
+  if (cmdEquals(cmd, "svt_ecu")) {
+    char addrText[8];
+    char ecuName[24];
+    char verText[8];
+    char depText[8];
+    static char hex[80 * 8 * 2 + 2];
+    if (!parseStringField(line, "addr", addrText, sizeof(addrText)) ||
+        !parseStringField(line, "name", ecuName, sizeof(ecuName)) ||
+        !parseStringField(line, "hex", hex, sizeof(hex))) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_svt\"}"));
+      return;
+    }
+    char* end = nullptr;
+    const long addr = strtol(addrText, &end, 16);
+    if (!end || *end != '\0' || addr <= 0 || addr > 0xFE) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_svt\"}"));
+      return;
+    }
+    int ver = 1;
+    int dep = 1;
+    if (parseStringField(line, "ver", verText, sizeof(verText))) ver = atoi(verText);
+    if (parseStringField(line, "dep", depText, sizeof(depText))) dep = atoi(depText);
+    if (ver < 0 || ver > 255 || dep < 0 || dep > 255) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_svt\"}"));
+      return;
+    }
+    const size_t hexLen = strlen(hex);
+    if (hexLen == 0 || (hexLen % 16) != 0 || hexLen / 16 > 80) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_svt\"}"));
+      return;
+    }
+    static uint8_t wire[80 * 8];
+    const size_t bytes = hexLen / 2;
+    for (size_t i = 0; i < hexLen; i += 2) {
+      const int hi = hexNibble(hex[i]);
+      const int lo = hexNibble(hex[i + 1]);
+      if (hi < 0 || lo < 0) {
+        out.println(F("{\"ok\":0,\"err\":\"bad_svt\"}"));
+        return;
+      }
+      wire[i / 2] = (uint8_t)((hi << 4) | lo);
+    }
+    if (!vehicle_svt::addEcu((uint8_t)addr, ecuName, (uint8_t)ver, (uint8_t)dep,
+                             wire, (uint8_t)(bytes / 8))) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_svt\"}"));
+      return;
+    }
+    out.println(F("{\"ok\":1,\"svt\":\"ecu\"}"));
+    return;
+  }
+
+  if (cmdEquals(cmd, "svt_commit")) {
+    if (!vehicle_svt::commitReplace()) {
+      out.println(F("{\"ok\":0,\"err\":\"bad_svt\"}"));
+      return;
+    }
+    out.println(F("{\"ok\":1,\"svt\":\"commit\"}"));
+    return;
+  }
+
   out.println(F("{\"ok\":0,\"err\":\"unknown_cmd\"}"));
 }
 
@@ -267,7 +355,7 @@ class UdpReplyPrinter : public Print {
  public:
   IPAddress ip;
   uint16_t port = 0;
-  char buf[240];
+  char buf[1400];
   size_t len = 0;
 
   size_t write(uint8_t c) override {
@@ -374,6 +462,25 @@ void drainNotes() {
 }
 
 }  // namespace
+
+void noteFa(const uint8_t* data, size_t len) {
+  if (!data || len > vehicle_fa::kMaxFa) return;
+  static char line[1200];
+  char sum[20];
+  char vin[18];
+  vehicle_fa::summary(sum);
+  bench_vin::copy(vin);
+  int used = snprintf(line, sizeof(line),
+                      "{\"ev\":\"fa\",\"sum\":\"%s\",\"vin\":\"%s\",\"hex\":\"", sum, vin);
+  if (used < 0 || (size_t)used >= sizeof(line)) return;
+  for (size_t i = 0; i < len; i++) {
+    if ((size_t)used + 3 >= sizeof(line)) return;
+    used += snprintf(line + used, sizeof(line) - (size_t)used, "%02X", data[i]);
+  }
+  if ((size_t)used + 3 >= sizeof(line)) return;
+  snprintf(line + used, sizeof(line) - (size_t)used, "\"}\n");
+  sendUdpLine(line);
+}
 
 void noteLine(const char* line) {
   Serial.println(line);

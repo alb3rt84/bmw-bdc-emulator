@@ -9,6 +9,11 @@
 
 #include "vehicle_svt.h"
 
+#include <Arduino.h>
+#include <Preferences.h>
+#include <stdio.h>
+#include <string.h>
+
 namespace vehicle_svt {
 
 namespace {
@@ -413,18 +418,135 @@ const Ecu kEcus[] = {
     {0x56, 1, 1, 11, k_FZD2_56, "FZD2"},
 };
 
-const Ecu* findEcu(uint8_t addr) {
-  for (size_t i = 0; i < sizeof(kEcus) / sizeof(kEcus[0]); i++) {
-    if (kEcus[i].addr == addr) return &kEcus[i];
+constexpr int kMaxEcu = 40;
+constexpr int kMaxPart = 360;
+constexpr int kNameLen = 20;
+
+portMUX_TYPE g_mux = portMUX_INITIALIZER_UNLOCKED;
+uint8_t g_part[kMaxPart][8];
+struct LiveEcu {
+  uint8_t addr;
+  uint8_t ver;
+  uint8_t dep;
+  uint8_t count;
+  uint16_t index;
+  char name[kNameLen];
+};
+LiveEcu g_ecu[kMaxEcu];
+int g_ecuN = 0;
+int g_partN = 0;
+
+uint8_t g_stagePart[kMaxPart][8];
+LiveEcu g_stage[kMaxEcu];
+int g_stageN = 0;
+int g_stagePartN = 0;
+bool g_staging = false;
+
+void packPart(uint8_t out[8], const Sgbm& part) {
+  out[0] = part.klass;
+  out[1] = (uint8_t)(part.id >> 24);
+  out[2] = (uint8_t)(part.id >> 16);
+  out[3] = (uint8_t)(part.id >> 8);
+  out[4] = (uint8_t)part.id;
+  out[5] = part.mainVersion;
+  out[6] = part.subVersion;
+  out[7] = part.patchVersion;
+}
+
+void seedFactory() {
+  g_ecuN = 0;
+  g_partN = 0;
+  const int n = (int)(sizeof(kEcus) / sizeof(kEcus[0]));
+  for (int i = 0; i < n && g_ecuN < kMaxEcu; i++) {
+    const Ecu& src = kEcus[i];
+    if (g_partN + src.count > kMaxPart) break;
+    LiveEcu& dst = g_ecu[g_ecuN];
+    dst.addr = src.addr;
+    dst.ver = src.svkVersion;
+    dst.dep = src.progDep;
+    dst.count = src.count;
+    dst.index = (uint16_t)g_partN;
+    snprintf(dst.name, sizeof(dst.name), "%s", src.name);
+    for (uint8_t p = 0; p < src.count; p++) packPart(g_part[g_partN + p], src.parts[p]);
+    g_partN += src.count;
+    g_ecuN++;
   }
-  return nullptr;
+}
+
+int findLive(uint8_t addr) {
+  for (int i = 0; i < g_ecuN; i++) {
+    if (g_ecu[i].addr == addr) return i;
+  }
+  return -1;
+}
+
+bool unpackNvs(const uint8_t* buf, size_t len) {
+  if (len < 5 || buf[0] != 0x53 || buf[1] != 1) return false;
+  const int ecuN = buf[2];
+  const int partN = ((int)buf[3] << 8) | buf[4];
+  if (ecuN <= 0 || ecuN > kMaxEcu || partN < 0 || partN > kMaxPart) return false;
+  size_t i = 5;
+  int filled = 0;
+  LiveEcu ecus[kMaxEcu];
+  for (int e = 0; e < ecuN; e++) {
+    if (i + 5 > len) return false;
+    LiveEcu& dst = ecus[e];
+    dst.addr = buf[i++];
+    dst.ver = buf[i++];
+    dst.dep = buf[i++];
+    dst.count = buf[i++];
+    const uint8_t nameLen = buf[i++];
+    if (nameLen == 0 || nameLen >= kNameLen || i + nameLen > len) return false;
+    memcpy(dst.name, buf + i, nameLen);
+    dst.name[nameLen] = '\0';
+    i += nameLen;
+    dst.index = (uint16_t)filled;
+    filled += dst.count;
+  }
+  if (filled != partN || i + (size_t)partN * 8 != len) return false;
+  memcpy(g_part, buf + i, (size_t)partN * 8);
+  memcpy(g_ecu, ecus, sizeof(LiveEcu) * (size_t)ecuN);
+  g_ecuN = ecuN;
+  g_partN = partN;
+  return true;
+}
+
+void saveNvs() {
+  uint8_t buf[3900];
+  size_t n = 0;
+  buf[n++] = 0x53;
+  buf[n++] = 1;
+  buf[n++] = (uint8_t)g_ecuN;
+  buf[n++] = (uint8_t)(g_partN >> 8);
+  buf[n++] = (uint8_t)g_partN;
+  for (int e = 0; e < g_ecuN; e++) {
+    const size_t nameLen = strlen(g_ecu[e].name);
+    if (n + 5 + nameLen > sizeof(buf)) return;
+    buf[n++] = g_ecu[e].addr;
+    buf[n++] = g_ecu[e].ver;
+    buf[n++] = g_ecu[e].dep;
+    buf[n++] = g_ecu[e].count;
+    buf[n++] = (uint8_t)nameLen;
+    memcpy(buf + n, g_ecu[e].name, nameLen);
+    n += nameLen;
+  }
+  if (n + (size_t)g_partN * 8 > sizeof(buf)) return;
+  memcpy(buf + n, g_part, (size_t)g_partN * 8);
+  n += (size_t)g_partN * 8;
+  Preferences prefs;
+  prefs.begin("bdcsvt", false);
+  prefs.putBytes("bin", buf, n);
+  prefs.end();
 }
 
 }  // namespace
 
 const char* name(uint8_t addr) {
-  const Ecu* ecu = findEcu(addr);
-  return ecu ? ecu->name : nullptr;
+  portENTER_CRITICAL(&g_mux);
+  const int i = findLive(addr);
+  const char* out = i < 0 ? nullptr : g_ecu[i].name;
+  portEXIT_CRITICAL(&g_mux);
+  return out;
 }
 
 size_t answerSvk(uint8_t addr, const uint8_t* req, size_t reqLen,
@@ -432,11 +554,23 @@ size_t answerSvk(uint8_t addr, const uint8_t* req, size_t reqLen,
   if (!req || !out || reqLen < 3 || req[0] != 0x22) return 0;
   const uint16_t did = (uint16_t)((req[1] << 8) | req[2]);
   if (did != 0xF101) return 0;
-  const Ecu* ecu = findEcu(addr);
-  if (!ecu) return 0;
-  const size_t need = 7u + (size_t)ecu->count * 8u;
+  uint8_t ver = 0;
+  uint8_t dep = 0;
+  uint8_t count = 0;
+  uint8_t packed[80 * 8];
+  portENTER_CRITICAL(&g_mux);
+  const int i = findLive(addr);
+  if (i >= 0) {
+    ver = g_ecu[i].ver;
+    dep = g_ecu[i].dep;
+    count = g_ecu[i].count;
+    if (count <= 80) memcpy(packed, &g_part[g_ecu[i].index], (size_t)count * 8);
+  }
+  portEXIT_CRITICAL(&g_mux);
+  if (i < 0) return 0;
+  const size_t need = 7u + (size_t)count * 8u;
   if (outMax < 3) return 0;
-  if (outMax < need) {
+  if (count > 80 || outMax < need) {
     out[0] = 0x7F;
     out[1] = 0x22;
     out[2] = 0x10;
@@ -445,23 +579,76 @@ size_t answerSvk(uint8_t addr, const uint8_t* req, size_t reqLen,
   out[0] = 0x62;
   out[1] = 0xF1;
   out[2] = 0x01;
-  out[3] = ecu->svkVersion;
-  out[4] = ecu->progDep;
+  out[3] = ver;
+  out[4] = dep;
   out[5] = 0;
-  out[6] = ecu->count;
-  size_t n = 7;
-  for (uint8_t i = 0; i < ecu->count; i++) {
-    const Sgbm& part = ecu->parts[i];
-    out[n++] = part.klass;
-    out[n++] = (uint8_t)(part.id >> 24);
-    out[n++] = (uint8_t)(part.id >> 16);
-    out[n++] = (uint8_t)(part.id >> 8);
-    out[n++] = (uint8_t)part.id;
-    out[n++] = part.mainVersion;
-    out[n++] = part.subVersion;
-    out[n++] = part.patchVersion;
+  out[6] = count;
+  memcpy(out + 7, packed, (size_t)count * 8);
+  return need;
+}
+
+void load() {
+  seedFactory();
+  uint8_t buf[3900];
+  Preferences prefs;
+  prefs.begin("bdcsvt", true);
+  const size_t n = prefs.getBytesLength("bin");
+  size_t got = 0;
+  if (n > 0 && n <= sizeof(buf)) got = prefs.getBytes("bin", buf, n);
+  prefs.end();
+  if (got == n && n > 0) {
+    portENTER_CRITICAL(&g_mux);
+    if (!unpackNvs(buf, n)) seedFactory();
+    portEXIT_CRITICAL(&g_mux);
   }
-  return n;
+}
+
+void beginReplace() {
+  g_staging = true;
+  g_stageN = 0;
+  g_stagePartN = 0;
+}
+
+bool addEcu(uint8_t addr, const char* ecuName, uint8_t ver, uint8_t dep,
+            const uint8_t* wire, uint8_t count) {
+  if (!g_staging || !ecuName || !wire || count == 0 || count > 80) return false;
+  if (addr == 0 || addr == 0xDF) return false;
+  const size_t nameLen = strlen(ecuName);
+  if (nameLen == 0 || nameLen >= kNameLen) return false;
+  for (size_t c = 0; c < nameLen; c++) {
+    const char ch = ecuName[c];
+    const bool ok = (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_';
+    if (!ok) return false;
+  }
+  for (int i = 0; i < g_stageN; i++) {
+    if (g_stage[i].addr == addr) return false;
+  }
+  if (g_stageN >= kMaxEcu || g_stagePartN + count > kMaxPart) return false;
+  LiveEcu& dst = g_stage[g_stageN];
+  dst.addr = addr;
+  dst.ver = ver;
+  dst.dep = dep;
+  dst.count = count;
+  dst.index = (uint16_t)g_stagePartN;
+  memcpy(dst.name, ecuName, nameLen);
+  dst.name[nameLen] = '\0';
+  memcpy(&g_stagePart[g_stagePartN], wire, (size_t)count * 8);
+  g_stagePartN += count;
+  g_stageN++;
+  return true;
+}
+
+bool commitReplace() {
+  if (!g_staging || g_stageN == 0) return false;
+  portENTER_CRITICAL(&g_mux);
+  memcpy(g_ecu, g_stage, sizeof(LiveEcu) * (size_t)g_stageN);
+  memcpy(g_part, g_stagePart, (size_t)g_stagePartN * 8);
+  g_ecuN = g_stageN;
+  g_partN = g_stagePartN;
+  portEXIT_CRITICAL(&g_mux);
+  g_staging = false;
+  saveNvs();
+  return true;
 }
 
 }  // namespace vehicle_svt

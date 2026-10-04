@@ -11,6 +11,7 @@
 #include "pc_link.h"
 
 #include <Arduino.h>
+#include <Preferences.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -21,6 +22,7 @@ namespace {
 
 portMUX_TYPE g_mux = portMUX_INITIALIZER_UNLOCKED;
 LiveSignals g_sig = {true, true, 0, 0.f, 50.f, 90};
+uint32_t g_km = 0;
 
 // 0x12F byte 0 and byte 2. Both clamps on is the ready frame 0x45:
 // bit0 ST_KL_R (KL30), bits3-2 ST_KL_15, bits7-6 ST_KEY_VLD.
@@ -80,6 +82,10 @@ static CyclicFrame g_table[] = {
     {"Terminal_0x12F", 0x12F, 8,
      {0x45, 0xFF, 0x45, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
      100, 0, CanChannel::Can2_Mcp},
+    // Kombi odometer. Bytes 0–2 are kilometres, little-endian.
+    {"Odometer_0x330", 0x330, 8,
+     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+     1000, 0, CanChannel::Can2_Mcp},
 };
 
 CyclicFrame* getCyclicTable(size_t& count) {
@@ -183,6 +189,52 @@ void setCoolantC(int16_t celsius) {
   g_sig.coolantC = celsius;
   portEXIT_CRITICAL(&g_mux);
   setPayload(0x1D0, p, 8);
+}
+
+void publishKm() {
+  uint32_t km = 0;
+  portENTER_CRITICAL(&g_mux);
+  km = g_km;
+  portEXIT_CRITICAL(&g_mux);
+  uint8_t p[8] = {};
+  p[0] = (uint8_t)(km & 0xFF);
+  p[1] = (uint8_t)((km >> 8) & 0xFF);
+  p[2] = (uint8_t)((km >> 16) & 0xFF);
+  setPayload(0x330, p, 8);
+}
+
+void loadOdometer() {
+  Preferences prefs;
+  prefs.begin("bdckm", true);
+  const uint32_t saved = prefs.getUInt("km", 0);
+  prefs.end();
+  portENTER_CRITICAL(&g_mux);
+  g_km = saved > 0xFFFFFFu ? 0xFFFFFFu : saved;
+  portEXIT_CRITICAL(&g_mux);
+  publishKm();
+}
+
+bool setOdometer(uint32_t km) {
+  if (km > 0xFFFFFFu) return false;
+  portENTER_CRITICAL(&g_mux);
+  g_km = km;
+  portEXIT_CRITICAL(&g_mux);
+  publishKm();
+  Preferences prefs;
+  prefs.begin("bdckm", false);
+  prefs.putUInt("km", km);
+  prefs.end();
+  char msg[48];
+  snprintf(msg, sizeof(msg), "[KM] %u na CAN 330", (unsigned)km);
+  pc_link::noteLine(msg);
+  return true;
+}
+
+uint32_t odometerKm() {
+  portENTER_CRITICAL(&g_mux);
+  const uint32_t km = g_km;
+  portEXIT_CRITICAL(&g_mux);
+  return km;
 }
 
 void setSignals(const LiveSignals& s) {

@@ -14,7 +14,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
-from vehicle_xml import Fa, fa_bytes, load_fa, load_svt
+from editor_window import VehicleEditor
+from vehicle_xml import Fa, SvtEcu, fa_bytes, fa_from_bytes, load_fa, load_svt
 
 
 APP_TITLE = "ZGW Emulator"
@@ -64,7 +65,7 @@ class UdpLink:
 
     def read_line(self) -> str | None:
         try:
-            data, _ = self._sock.recvfrom(1024)
+            data, _ = self._sock.recvfrom(1536)
         except (socket.timeout, OSError):
             return None
         return data.decode("utf-8", errors="replace").strip()
@@ -84,8 +85,12 @@ class App(tk.Tk):
         self._ignore_switch = False
         self._vin_armed = False
         self._fa: Fa | None = None
+        self._svt: list[SvtEcu] = []
         self._fa_from = ""
         self._template = True
+        self._accept_pull = False
+        self._km_armed = False
+        self._editor: VehicleEditor | None = None
 
         top = ttk.Frame(self)
         top.pack(fill="x", padx=10, pady=8)
@@ -110,12 +115,25 @@ class App(tk.Tk):
         )
         ttk.Label(vin_box, textvariable=self.vin_status).pack(anchor="w", padx=8, pady=(0, 6))
 
+        km_box = ttk.LabelFrame(self, text="Przebieg")
+        km_box.pack(fill="x", padx=10, pady=4)
+        km_row = ttk.Frame(km_box)
+        km_row.pack(fill="x", padx=8, pady=8)
+        ttk.Label(km_row, text="Kilometry").pack(side="left")
+        self.km_var = tk.StringVar(value="0")
+        ttk.Entry(km_row, textvariable=self.km_var, width=10, font=("Consolas", 12)).pack(side="left", padx=8)
+        ttk.Button(km_row, text="Ustaw", command=self._send_km).pack(side="left")
+        ttk.Label(
+            km_row,
+            text="CAN 0x330, bajty 0–2, little-endian, co 1 s.",
+        ).pack(side="left", padx=8)
+
         order = ttk.LabelFrame(self, text="FA (zapis VCM w BDC) i SVT")
         order.pack(fill="x", padx=10, pady=4)
         buttons = ttk.Frame(order)
         buttons.pack(fill="x", padx=8, pady=(8, 4))
-        ttk.Button(buttons, text="Wczytaj FA.xml", command=self._pick_fa).pack(side="left")
-        ttk.Button(buttons, text="Wyślij", command=self._send_vehicle).pack(side="left", padx=8)
+        ttk.Button(buttons, text="Edytuj FA i SVT", command=self._open_editor).pack(side="left")
+        ttk.Button(buttons, text="Pobierz z emulatora", command=self._pull_vehicle).pack(side="left", padx=8)
         self.fa_status = tk.StringVar(value="Ładowanie FA i SVT…")
         ttk.Label(order, textvariable=self.fa_status, wraplength=700).pack(anchor="w", padx=8, pady=(0, 4))
         self.svt_status = tk.StringVar(value="")
@@ -179,9 +197,9 @@ class App(tk.Tk):
         self.conn_btn.configure(text="Rozłącz")
         self.status.set(f"UDP {ip}:{UDP_PORT}")
         self._append(f"Połączono z {ip}:{UDP_PORT}")
+        self._accept_pull = True
         self._send_raw({"cmd": "ping"})
         self._send_clamps()
-        self._send_vehicle()
 
     def _disconnect(self) -> None:
         self._stop.set()
@@ -219,7 +237,23 @@ class App(tk.Tk):
         self._vin_armed = True
         self._send_raw({"cmd": "vin", "vin": vin})
 
+    def _send_km(self) -> None:
+        if self._link is None:
+            messagebox.showinfo(APP_TITLE, "Najpierw połącz z emulatorem.")
+            return
+        text = self.km_var.get().strip().replace(" ", "")
+        if not text.isdigit():
+            messagebox.showerror(APP_TITLE, "Przebieg ma być liczbą kilometrów.")
+            return
+        km = int(text)
+        if km > 0xFFFFFF:
+            messagebox.showerror(APP_TITLE, "Przebieg mieści się w 16777215 km.")
+            return
+        self._km_armed = True
+        self._send_raw({"cmd": "km", "km": km})
+
     def _refresh_fa_status(self) -> None:
+        self.svt_status.set(f"SVT: {len(self._svt)} sterowników. Edycja jest w oknie FA i SVT.")
         order = self._fa.summary() if self._fa is not None else "brak FA"
         vin = self._fa.vin if self._fa is not None and self._fa.vin else ""
         if self._template:
@@ -267,9 +301,7 @@ class App(tk.Tk):
                 self._apply_fa(load_fa(fa_path), fa_path.name)
             svt_path = data / "SVT.xml"
             if svt_path.is_file():
-                ecus = load_svt(svt_path)
-                listed = ", ".join(f"{ecu.addr:02X} {ecu.name}" for ecu in ecus)
-                self.svt_status.set(f"SVT zaszyte w płytce, {len(ecus)} sterowników: {listed}")
+                self._svt = load_svt(svt_path)
         except (OSError, ValueError, ET.ParseError) as exc:
             self.fa_status.set(str(exc))
             return
@@ -293,9 +325,85 @@ class App(tk.Tk):
             self._vin_armed = True
             self._send_raw({"cmd": "vin", "vin": vin})
         if self._fa is None:
-            self._append("Brak FA. Wczytaj FA.xml.")
+            self._append("Brak FA. Wczytaj je w edycji.")
         else:
             self._send_raw({"cmd": "fa", "hex": fa_bytes(self._fa).hex()})
+        self._send_svt()
+
+    def _send_svt(self) -> None:
+        if not self._svt:
+            self._append("Brak SVT.")
+            return
+        self._send_raw({"cmd": "svt_begin"})
+        for ecu in self._svt:
+            self._send_raw({
+                "cmd": "svt_ecu",
+                "addr": f"{ecu.addr:02X}",
+                "name": ecu.name,
+                "ver": str(ecu.svk_version),
+                "dep": str(ecu.prog_dep),
+                "hex": ecu.wire().hex(),
+            })
+        self._send_raw({"cmd": "svt_commit"})
+
+    def note(self, text: str) -> None:
+        self._append(text)
+
+    def push_vehicle(self, fa: Fa, svt: list[SvtEcu]) -> None:
+        self._fa = fa
+        self._svt = list(svt)
+        if fa.vin:
+            self.vin_var.set(fa.vin)
+        self._template = False
+        self._refresh_fa_status()
+        self._append(f"FA {fa.summary()}, SVT {len(svt)} sterowników")
+        if self._link is None:
+            messagebox.showinfo(APP_TITLE, "Zapisane w oknie. Połącz z emulatorem, żeby to wysłać.")
+            return
+        self._send_vehicle()
+
+    def _open_editor(self) -> None:
+        editor = self._editor
+        if editor is not None and editor.winfo_exists():
+            editor.lift()
+            return
+        self._editor = VehicleEditor(self, self._fa, self._svt)
+
+    def _pull_vehicle(self) -> None:
+        if self._link is None:
+            messagebox.showinfo(APP_TITLE, "Najpierw połącz z emulatorem.")
+            return
+        self._accept_pull = True
+        self._send_raw({"cmd": "get"})
+
+    def _editor_if_open(self) -> VehicleEditor | None:
+        editor = self._editor
+        if editor is not None and editor.winfo_exists():
+            return editor
+        return None
+
+    def _take_board_fa(self, obj: dict) -> None:
+        raw = str(obj.get("fahex") or obj.get("hex") or "")
+        if not raw:
+            return
+        try:
+            fa = fa_from_bytes(bytes.fromhex(raw))
+        except ValueError as exc:
+            self._append(str(exc))
+            return
+        vin = str(obj.get("vin") or "")
+        if not vin and self._fa is not None:
+            vin = self._fa.vin
+        if not vin:
+            vin = self.vin_var.get().strip()
+        if vin:
+            fa.vin = vin
+        self._apply_fa(fa, "emulator")
+        self._template = False
+        self._refresh_fa_status()
+        editor = self._editor_if_open()
+        if editor is not None:
+            editor.show_fa(fa)
 
     def _send_clamps(self) -> None:
         if self._ignore_switch:
@@ -335,12 +443,33 @@ class App(tk.Tk):
             return
         ev = obj.get("ev")
         if ev == "eth":
-            self._append(str(obj.get("msg", "")))
+            msg = str(obj.get("msg", ""))
+            self._append(msg)
+            if msg.startswith("[VIN] announcing "):
+                vin = msg.rsplit(" ", 1)[-1]
+                if len(vin) == 17:
+                    self.vin_var.set(vin)
+                    if self._fa is not None:
+                        self._fa.vin = vin
+                    editor = self._editor_if_open()
+                    if editor is not None:
+                        editor.show_vin(vin)
+            return
+        if ev == "fa":
+            self._take_board_fa(obj)
+            summary = str(obj.get("sum", ""))
+            if summary:
+                self._append(f"FA zapisane w emulatorze: {summary}")
             return
         if ev == "can":
             self._append("MCP  " + str(obj.get("msg", "")))
             return
-        if obj.get("ok") == 1 and "fa" in obj:
+        if obj.get("ok") == 1 and obj.get("svt") == "commit":
+            self._append(f"SVT w emulatorze: {len(self._svt)} sterowników")
+            return
+        if obj.get("ok") == 1 and obj.get("svt") in ("begin", "ecu"):
+            return
+        if obj.get("ok") == 1 and "fa" in obj and "kl30" not in obj:
             self._append(f"FA w emulatorze: {obj['fa']}")
             return
         if obj.get("ok") == 1 and obj.get("vcm") == 1:
@@ -353,6 +482,15 @@ class App(tk.Tk):
             )
             if vin:
                 self.vin_status.set(f"Emulator nadaje {vin}")
+            if self._accept_pull:
+                self._accept_pull = False
+                if "km" in obj:
+                    self.km_var.set(str(int(obj["km"])))
+                self._take_board_fa(obj)
+                self._append("Pobrano z emulatora przebieg i FA.")
+            if self._km_armed and "km" in obj:
+                self._km_armed = False
+                self._append(f"Przebieg ustawiony: {int(obj['km'])} km")
             if self._vin_armed and vin:
                 self._vin_armed = False
                 self._append(f"VIN ustawiony: {vin}")
@@ -365,6 +503,11 @@ class App(tk.Tk):
                 messagebox.showerror(APP_TITLE, "Emulator odrzucił VIN.")
             elif err == "bad_fa":
                 messagebox.showerror(APP_TITLE, "Emulator odrzucił FA.")
+            elif err == "bad_km":
+                self._km_armed = False
+                messagebox.showerror(APP_TITLE, "Emulator odrzucił przebieg.")
+            elif err == "bad_svt":
+                self._append("Emulator odrzucił SVT.")
             elif err == "bad_vcm":
                 messagebox.showerror(APP_TITLE, "Emulator odrzucił I-Stufe.")
             elif err == "too_big":
