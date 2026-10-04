@@ -549,6 +549,16 @@ const char* name(uint8_t addr) {
   return out;
 }
 
+size_t listAddrs(uint8_t* out, size_t max) {
+  if (out == nullptr || max == 0) return 0;
+  portENTER_CRITICAL(&g_mux);
+  size_t n = (size_t)g_ecuN;
+  if (n > max) n = max;
+  for (size_t i = 0; i < n; i++) out[i] = g_ecu[i].addr;
+  portEXIT_CRITICAL(&g_mux);
+  return n;
+}
+
 size_t answerSvk(uint8_t addr, const uint8_t* req, size_t reqLen,
                  uint8_t* out, size_t outMax) {
   if (!req || !out || reqLen < 3 || req[0] != 0x22) return 0;
