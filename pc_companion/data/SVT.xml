@@ -1,0 +1,2254 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<svt xmlns="http://bmw.com/2005/psdz.data.svt">
+    <header date="2026-08-03" time="14:51:48" createdBy="" svtTypeInfo=""/>
+    <standardSVT svtVersion="5">
+        <ecu baseVariant="BDC_GW3">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="16" physicalOffsetAsHex="10"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="false" NGSCEnabled="false" SecurityEnabled="true" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00004159</id>
+                    <mainVersion>013</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00001E5C</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00001E5D</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00001E62</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00004162</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00004163</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00004165</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00004564</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00004565</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>GWTB</processClass>
+                    <id>0000413B</id>
+                    <mainVersion>012</mainVersion>
+                    <subVersion>058</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00004139</id>
+                    <mainVersion>142</mainVersion>
+                    <subVersion>010</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>0000413A</id>
+                    <mainVersion>142</mainVersion>
+                    <subVersion>010</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="BODY_CAN" busID="1"/>
+                <ecuBusConnectionInfo busType="FA_CAN" busID="4"/>
+                <ecuBusConnectionInfo busType="FLEXRAY" busID="5"/>
+                <ecuBusConnectionInfo busType="B2_CAN" busID="13"/>
+                <ecuBusConnectionInfo busType="ETHERNET" busID="15"/>
+                <ecuBusConnectionInfo busType="D_CAN" busID="16"/>
+                <ecuBusConnectionInfo busType="IK_CAN" busID="20"/>
+                <ecuBusConnectionInfo busType="FAS_CAN" busID="25"/>
+                <ecuBusConnectionInfo busType="SYSTEMBUS_ETHERNET" busID="27"/>
+                <ecuBusConnectionInfo busType="AE_CAN_FD" busID="29"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="BDC_BODY3">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="64" physicalOffsetAsHex="40"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00004159</id>
+                    <mainVersion>013</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00000F2B</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00000F2D</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00000F2F</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00000F32</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00001F7E</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>0000415B</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>0000415C</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00004518</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000017BD</id>
+                    <mainVersion>203</mainVersion>
+                    <subVersion>070</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00001DF8</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>071</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000044ED</id>
+                    <mainVersion>008</mainVersion>
+                    <subVersion>034</subVersion>
+                    <patchVersion>241</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00004694</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>059</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000051DD</id>
+                    <mainVersion>017</mainVersion>
+                    <subVersion>074</subVersion>
+                    <patchVersion>007</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00005665</id>
+                    <mainVersion>013</mainVersion>
+                    <subVersion>077</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00007083</id>
+                    <mainVersion>032</mainVersion>
+                    <subVersion>083</subVersion>
+                    <patchVersion>011</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00005F9E</id>
+                    <mainVersion>142</mainVersion>
+                    <subVersion>011</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005F9F</id>
+                    <mainVersion>142</mainVersion>
+                    <subVersion>011</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="SYSTEMBUS_ETHERNET" busID="27"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="DCS">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="69" physicalOffsetAsHex="45"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00004766</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>012</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>0000475C</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00006183</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00006184</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00006185</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00006186</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00006187</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00006188</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="SYSTEMBUS_ETHERNET" busID="27"/>
+                <ecuBusConnectionInfo busType="ETHERNET_45" busID="107"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="KAFAS4">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="93" physicalOffsetAsHex="5D"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="true" SWTEnabled="true" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00004902</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>001</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000040F8</id>
+                    <mainVersion>013</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>013</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000040F9</id>
+                    <mainVersion>013</mainVersion>
+                    <subVersion>005</subVersion>
+                    <patchVersion>026</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00004901</id>
+                    <mainVersion>004</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>149</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00004903</id>
+                    <mainVersion>194</mainVersion>
+                    <subVersion>080</subVersion>
+                    <patchVersion>110</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00004904</id>
+                    <mainVersion>194</mainVersion>
+                    <subVersion>080</subVersion>
+                    <patchVersion>110</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00004905</id>
+                    <mainVersion>144</mainVersion>
+                    <subVersion>050</subVersion>
+                    <patchVersion>101</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="true"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="SYSTEMBUS_ETHERNET" busID="27"/>
+                <ecuBusConnectionInfo busType="ETHERNET_5D" busID="103"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="FRR2">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="33" physicalOffsetAsHex="21"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>0000223F</id>
+                    <mainVersion>004</mainVersion>
+                    <subVersion>010</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>0000469A</id>
+                    <mainVersion>045</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>045</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00004769</id>
+                    <mainVersion>040</mainVersion>
+                    <subVersion>015</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00004699</id>
+                    <mainVersion>040</mainVersion>
+                    <subVersion>072</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>0000476A</id>
+                    <mainVersion>040</mainVersion>
+                    <subVersion>009</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="SYSTEMBUS_ETHERNET" busID="27"/>
+                <ecuBusConnectionInfo busType="ETHERNET_21" busID="105"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="RAM">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="55" physicalOffsetAsHex="37"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="true" SWTEnabled="true" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00004236</id>
+                    <mainVersion>000</mainVersion>
+                    <subVersion>006</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00004224</id>
+                    <mainVersion>018</mainVersion>
+                    <subVersion>004</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00005ED7</id>
+                    <mainVersion>019</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>015</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005EDB</id>
+                    <mainVersion>019</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>005</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005EDF</id>
+                    <mainVersion>019</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>010</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005EE1</id>
+                    <mainVersion>019</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>015</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005EE6</id>
+                    <mainVersion>007</mainVersion>
+                    <subVersion>025</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005EE8</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>100</subVersion>
+                    <patchVersion>040</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00006117</id>
+                    <mainVersion>015</mainVersion>
+                    <subVersion>005</subVersion>
+                    <patchVersion>053</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="true"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="SYSTEMBUS_ETHERNET" busID="27"/>
+                <ecuBusConnectionInfo busType="ETHERNET_37" busID="106"/>
+                <ecuBusConnectionInfo busType="IK_CAN" busID="20"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="DME_BAC2">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="18" physicalOffsetAsHex="12"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="true" SWTEnabled="true" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00003DAE</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>004</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>000042C2</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000029B7</id>
+                    <mainVersion>000</mainVersion>
+                    <subVersion>023</subVersion>
+                    <patchVersion>086</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>000040C4</id>
+                    <mainVersion>007</mainVersion>
+                    <subVersion>033</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000040C5</id>
+                    <mainVersion>007</mainVersion>
+                    <subVersion>033</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000078E6</id>
+                    <mainVersion>007</mainVersion>
+                    <subVersion>033</subVersion>
+                    <patchVersion>018</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="true" CertEnabled="false" hasIndividualData="true"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="FA_CAN" busID="4"/>
+                <ecuBusConnectionInfo busType="FLEXRAY" busID="5"/>
+                <ecuBusConnectionInfo busType="LE_CAN" busID="18"/>
+                <ecuBusConnectionInfo busType="LP_CAN" busID="19"/>
+                <ecuBusConnectionInfo busType="LE2_CAN" busID="28"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="EPS3">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="48" physicalOffsetAsHex="30"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>000033CC</id>
+                    <mainVersion>004</mainVersion>
+                    <subVersion>003</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>0000450A</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>000033CD</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000033C9</id>
+                    <mainVersion>021</mainVersion>
+                    <subVersion>004</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00004E96</id>
+                    <mainVersion>010</mainVersion>
+                    <subVersion>010</subVersion>
+                    <patchVersion>008</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00004E97</id>
+                    <mainVersion>010</mainVersion>
+                    <subVersion>240</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005875</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>240</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>0000587A</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>240</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="true" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="FLEXRAY" busID="5"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="DSC_VIP_IB4">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="57" physicalOffsetAsHex="39"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="true" SWTEnabled="true" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>000040C3</id>
+                    <mainVersion>007</mainVersion>
+                    <subVersion>003</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00003D78</id>
+                    <mainVersion>010</mainVersion>
+                    <subVersion>003</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00007FC9</id>
+                    <mainVersion>004</mainVersion>
+                    <subVersion>005</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005B86</id>
+                    <mainVersion>009</mainVersion>
+                    <subVersion>018</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005B87</id>
+                    <mainVersion>009</mainVersion>
+                    <subVersion>018</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="true" CertEnabled="false" hasIndividualData="true"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="FLEXRAY" busID="5"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="ICAM3">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="6" physicalOffsetAsHex="06"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>0000807D</id>
+                    <mainVersion>004</mainVersion>
+                    <subVersion>007</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00008081</id>
+                    <mainVersion>006</mainVersion>
+                    <subVersion>023</subVersion>
+                    <patchVersion>006</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00008C15</id>
+                    <mainVersion>004</mainVersion>
+                    <subVersion>007</subVersion>
+                    <patchVersion>011</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>0000833D</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>005</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00008C17</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>005</subVersion>
+                    <patchVersion>005</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00008C19</id>
+                    <mainVersion>020</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00008F16</id>
+                    <mainVersion>004</mainVersion>
+                    <subVersion>001</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="SYSTEMBUS_ETHERNET" busID="27"/>
+                <ecuBusConnectionInfo busType="ETHERNET_06" busID="102"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="ACSM5">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="1" physicalOffsetAsHex="01"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>000046B2</id>
+                    <mainVersion>006</mainVersion>
+                    <subVersion>003</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00001B29</id>
+                    <mainVersion>009</mainVersion>
+                    <subVersion>005</subVersion>
+                    <patchVersion>004</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00001B2A</id>
+                    <mainVersion>009</mainVersion>
+                    <subVersion>013</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00001B2B</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>024</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00001B2C</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>010</subVersion>
+                    <patchVersion>041</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00001B2D</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>012</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00002ABF</id>
+                    <mainVersion>004</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00001B2E</id>
+                    <mainVersion>006</mainVersion>
+                    <subVersion>082</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00001B2F</id>
+                    <mainVersion>006</mainVersion>
+                    <subVersion>082</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="true" CertEnabled="false" hasIndividualData="true"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="FLEXRAY" busID="5"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="EGS7">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="24" physicalOffsetAsHex="18"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00004326</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>014</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000040EB</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>001</subVersion>
+                    <patchVersion>023</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00005F6D</id>
+                    <mainVersion>014</mainVersion>
+                    <subVersion>026</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005F6F</id>
+                    <mainVersion>050</mainVersion>
+                    <subVersion>093</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005F70</id>
+                    <mainVersion>019</mainVersion>
+                    <subVersion>093</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00007622</id>
+                    <mainVersion>093</mainVersion>
+                    <subVersion>178</subVersion>
+                    <patchVersion>014</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="LE_CAN" busID="18"/>
+                <ecuBusConnectionInfo busType="LP_CAN" busID="19"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="SRR">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="8" physicalOffsetAsHex="08"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00004141</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>004</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00004146</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>037</subVersion>
+                    <patchVersion>004</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00007023</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>009</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005ED0</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>037</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005ED1</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>037</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005ED2</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>037</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="FAS_CAN" busID="25"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="SAS3">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="35" physicalOffsetAsHex="23"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>000042D3</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>003</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000042C1</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>010</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>0000702B</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>003</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005943</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>172</subVersion>
+                    <patchVersion>160</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005944</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>172</subVersion>
+                    <patchVersion>160</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="true" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="FLEXRAY" busID="5"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="DSC_BRS">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="41" physicalOffsetAsHex="29"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>000040C3</id>
+                    <mainVersion>007</mainVersion>
+                    <subVersion>003</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00003D72</id>
+                    <mainVersion>009</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>017</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00005B7E</id>
+                    <mainVersion>004</mainVersion>
+                    <subVersion>003</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005B85</id>
+                    <mainVersion>009</mainVersion>
+                    <subVersion>018</subVersion>
+                    <patchVersion>031</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00005ED5</id>
+                    <mainVersion>009</mainVersion>
+                    <subVersion>018</subVersion>
+                    <patchVersion>031</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00009916</id>
+                    <mainVersion>009</mainVersion>
+                    <subVersion>018</subVersion>
+                    <patchVersion>031</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="true" CertEnabled="false" hasIndividualData="true"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="FLEXRAY" busID="5"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="DKOMBI4">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="96" physicalOffsetAsHex="60"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="true" SWTEnabled="true" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>0000467F</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>004</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00004508</id>
+                    <mainVersion>008</mainVersion>
+                    <subVersion>003</subVersion>
+                    <patchVersion>025</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00005EA5</id>
+                    <mainVersion>160</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005C57</id>
+                    <mainVersion>160</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005C58</id>
+                    <mainVersion>160</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005C59</id>
+                    <mainVersion>160</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005C5A</id>
+                    <mainVersion>160</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>FLSL</processClass>
+                    <id>00005C56</id>
+                    <mainVersion>160</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="true" hasIndividualData="true"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="1" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="FA_CAN" busID="4"/>
+                <ecuBusConnectionInfo busType="ETHERNET_60" busID="101"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="ATM2">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="97" physicalOffsetAsHex="61"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="true" SWTEnabled="true" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>0000451B</id>
+                    <mainVersion>103</mainVersion>
+                    <subVersion>004</subVersion>
+                    <patchVersion>004</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00004514</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>010</subVersion>
+                    <patchVersion>008</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00004A51</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00004A53</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00004A54</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00004A55</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00004A56</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00004A57</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00004A59</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00004A5A</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>FLSL</processClass>
+                    <id>00004A52</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>020</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="true" hasIndividualData="true"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="1" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="IK_CAN" busID="20"/>
+                <ecuBusConnectionInfo busType="ETHERNET_61" busID="100"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="HU_MGU">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="99" physicalOffsetAsHex="63"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="true" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00005F32</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>001</subVersion>
+                    <patchVersion>004</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00003E52</id>
+                    <mainVersion>008</mainVersion>
+                    <subVersion>010</subVersion>
+                    <patchVersion>124</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00003F36</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>006</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005684</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005685</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005686</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005687</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000056E5</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000056E6</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000056E7</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000056E8</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000056E9</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000056EA</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000056EB</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000056EC</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000056EE</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005CC5</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00005688</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00005689</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>0000568A</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>0000568B</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>0000568C</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>0000568D</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>0000568E</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>0000568F</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>0000569B</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056AA</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056B5</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056B8</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056B9</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056BE</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056BF</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056C0</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056C1</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056C4</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056C6</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056C7</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056C8</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056C9</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056CA</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056CB</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056D0</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056D1</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056D4</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056D5</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056D7</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056D8</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056D9</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056DA</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056DB</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056DC</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056DE</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000056E0</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00005A94</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00005A95</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00005A96</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00005CC6</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00005CC7</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00005CCA</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00006949</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000073B7</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00007CFC</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000083B6</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000083B7</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>000083B8</id>
+                    <mainVersion>030</mainVersion>
+                    <subVersion>016</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>ENTD</processClass>
+                    <id>000055EB</id>
+                    <mainVersion>011</mainVersion>
+                    <subVersion>019</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>NAVD</processClass>
+                    <id>000046A0</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>009</subVersion>
+                    <patchVersion>232</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="true" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="1" ipSecEnabled="true" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="SYSTEMBUS_ETHERNET" busID="27"/>
+                <ecuBusConnectionInfo busType="ETHERNET_63" busID="22"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="SRR">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="40" physicalOffsetAsHex="28"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00004141</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>004</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00004146</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>023</subVersion>
+                    <patchVersion>015</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00007023</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>009</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005ED0</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>023</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005ED1</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>023</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005ED2</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>023</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="FAS_CAN" busID="25"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="SRR">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="42" physicalOffsetAsHex="2A"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00004141</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>004</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00004146</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>037</subVersion>
+                    <patchVersion>004</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00007023</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>009</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005ED0</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>037</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005ED1</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>037</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005ED2</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>037</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="FAS_CAN" busID="25"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="SRR">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="32" physicalOffsetAsHex="20"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00004141</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>004</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00004146</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>037</subVersion>
+                    <patchVersion>004</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00007023</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>009</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005ED0</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>037</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005ED1</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>037</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005ED2</id>
+                    <mainVersion>002</mainVersion>
+                    <subVersion>037</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="FAS_CAN" busID="25"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="IHKA4">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="120" physicalOffsetAsHex="78"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>000051C7</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000051C9</id>
+                    <mainVersion>004</mainVersion>
+                    <subVersion>031</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>0000AC95</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>009</subVersion>
+                    <patchVersion>014</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000051C4</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>060</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="IK_CAN" busID="20"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="SCR2">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="11" physicalOffsetAsHex="0B"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="false" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00002BB8</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>000031E2</id>
+                    <mainVersion>004</mainVersion>
+                    <subVersion>006</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00003306</id>
+                    <mainVersion>009</mainVersion>
+                    <subVersion>004</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00005B78</id>
+                    <mainVersion>009</mainVersion>
+                    <subVersion>004</subVersion>
+                    <patchVersion>007</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="LP_CAN" busID="19"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="USS">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="44" physicalOffsetAsHex="2C"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>000042D6</id>
+                    <mainVersion>200</mainVersion>
+                    <subVersion>005</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>0000430A</id>
+                    <mainVersion>049</mainVersion>
+                    <subVersion>004</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00005D59</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>006</subVersion>
+                    <patchVersion>010</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005D5A</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>035</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="FAS_CAN" busID="25"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="ZBE4">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="103" physicalOffsetAsHex="67"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>0000428B</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00005BF6</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>000058A1</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>008</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000058A2</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>008</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>000058A3</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>006</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="IK_CAN" busID="20"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="FLM2">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="67" physicalOffsetAsHex="43"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00005CFF</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000043AF</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>017</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00005CFA</id>
+                    <mainVersion>100</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005CFB</id>
+                    <mainVersion>104</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00005CFC</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>009</subVersion>
+                    <patchVersion>009</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="B2_CAN" busID="13"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="GWS2">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="94" physicalOffsetAsHex="5E"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00004885</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>002</subVersion>
+                    <patchVersion>003</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00005938</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000042DA</id>
+                    <mainVersion>006</mainVersion>
+                    <subVersion>003</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00005897</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>014</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005898</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>020</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="LP_CAN" busID="19"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="FLM2">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="68" physicalOffsetAsHex="44"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00005CFF</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>000043AF</id>
+                    <mainVersion>016</mainVersion>
+                    <subVersion>017</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00005CFA</id>
+                    <mainVersion>100</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>002</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00005CFB</id>
+                    <mainVersion>104</mainVersion>
+                    <subVersion>000</subVersion>
+                    <patchVersion>001</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFK</processClass>
+                    <id>00005CFC</id>
+                    <mainVersion>001</mainVersion>
+                    <subVersion>009</subVersion>
+                    <patchVersion>009</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="false"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="B2_CAN" busID="13"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+        <ecu baseVariant="FZD2">
+            <diagnosticAddresses>
+                <diagnosticAddress physicalOffset="86" physicalOffsetAsHex="56"/>
+            </diagnosticAddresses>
+            <ecuDetailInfo ISO14229Enabled="true" FlashEnabled="true" CodingEnabled="true" NGSCEnabled="false" SecurityEnabled="false" SWTEnabled="false" ActiveNotifyEnabled="true"/>
+            <standardSVK SVKVersion="1" progDepChecked="1">
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00001D95</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>007</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00001D97</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>007</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00001D98</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>007</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00001D99</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>007</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>0000318C</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>007</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWEL</processClass>
+                    <id>00003CDC</id>
+                    <mainVersion>005</mainVersion>
+                    <subVersion>007</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>HWAP</processClass>
+                    <id>00002C7D</id>
+                    <mainVersion>255</mainVersion>
+                    <subVersion>255</subVersion>
+                    <patchVersion>255</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00001D92</id>
+                    <mainVersion>006</mainVersion>
+                    <subVersion>050</subVersion>
+                    <patchVersion>040</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>CAFD</processClass>
+                    <id>00001D93</id>
+                    <mainVersion>007</mainVersion>
+                    <subVersion>025</subVersion>
+                    <patchVersion>021</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>BTLD</processClass>
+                    <id>00002F47</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>130</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+                <partIdentification>
+                    <processClass>SWFL</processClass>
+                    <id>00002F48</id>
+                    <mainVersion>003</mainVersion>
+                    <subVersion>130</subVersion>
+                    <patchVersion>000</patchVersion>
+                </partIdentification>
+            </standardSVK>
+            <ecuStatusInfo identityCheck="false" RequestSVKResponse="true" ecuContainedInSVTSoll="false" ECUChanged="false" unsupportedSVKVersion="false" FlexrayIsoTP="false" CertEnabled="false" hasIndividualData="true"/>
+            <pdxInfos secOcEnabled="false" isSecOcMaster="false" sfaEnabled="false" certVersion="0" ipSecEnabled="false" lcsServicePackSupported="false" lcsSysTimeSupported="false" mirrorProtocolSupported="false" ecuAuthEnabled="false" programmingProtectionLevel="0" ipSecBitmask="false" macSecEnabled="false" isSmartActuatorMaster="false" updateSmartActuatorConfigurationSupported="false" lcsIntegrityProtectionOCSupported="false" lcsIukCluster="false" servicePack="0" aclEnabled="false"/>
+            <ecuBusConnectionInfos>
+                <ecuBusConnectionInfo busType="BODY_CAN" busID="1"/>
+            </ecuBusConnectionInfos>
+        </ecu>
+    </standardSVT>
+</svt>

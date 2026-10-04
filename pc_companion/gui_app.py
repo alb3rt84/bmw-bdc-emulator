@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
-from vehicle_xml import Fa, Vcm, fa_bytes, load_fa, load_vcm
+from vehicle_xml import Fa, fa_bytes, load_fa, load_svt
 
 
 APP_TITLE = "ZGW Emulator"
@@ -84,9 +84,6 @@ class App(tk.Tk):
         self._ignore_switch = False
         self._vin_armed = False
         self._fa: Fa | None = None
-        self._istufe = ""
-        self._istufe_werk = ""
-        self._istufe_ho = ""
         self._fa_from = ""
         self._template = True
 
@@ -105,7 +102,7 @@ class App(tk.Tk):
         row = ttk.Frame(vin_box)
         row.pack(fill="x", padx=8, pady=8)
         ttk.Label(row, text="VIN").pack(side="left")
-        self.vin_var = tk.StringVar(value="WBA00000200000000")
+        self.vin_var = tk.StringVar(value="WBA5V510X0FJ28775")
         ttk.Entry(row, textvariable=self.vin_var, width=22, font=("Consolas", 12)).pack(side="left", padx=8)
         ttk.Button(row, text="Nadawaj", command=self._send_vin).pack(side="left")
         self.vin_status = tk.StringVar(
@@ -113,15 +110,16 @@ class App(tk.Tk):
         )
         ttk.Label(vin_box, textvariable=self.vin_status).pack(anchor="w", padx=8, pady=(0, 6))
 
-        order = ttk.LabelFrame(self, text="FA i VCM")
+        order = ttk.LabelFrame(self, text="FA (zapis VCM w BDC) i SVT")
         order.pack(fill="x", padx=10, pady=4)
         buttons = ttk.Frame(order)
         buttons.pack(fill="x", padx=8, pady=(8, 4))
         ttk.Button(buttons, text="Wczytaj FA.xml", command=self._pick_fa).pack(side="left")
-        ttk.Button(buttons, text="Wczytaj VCM.xml", command=self._pick_vcm).pack(side="left", padx=8)
-        ttk.Button(buttons, text="Wyślij", command=self._send_vehicle).pack(side="left")
-        self.fa_status = tk.StringVar(value="Ładowanie FA i VCM…")
-        ttk.Label(order, textvariable=self.fa_status, wraplength=700).pack(anchor="w", padx=8, pady=(0, 8))
+        ttk.Button(buttons, text="Wyślij", command=self._send_vehicle).pack(side="left", padx=8)
+        self.fa_status = tk.StringVar(value="Ładowanie FA i SVT…")
+        ttk.Label(order, textvariable=self.fa_status, wraplength=700).pack(anchor="w", padx=8, pady=(0, 4))
+        self.svt_status = tk.StringVar(value="")
+        ttk.Label(order, textvariable=self.svt_status, wraplength=700).pack(anchor="w", padx=8, pady=(0, 8))
 
         clamps = ttk.LabelFrame(self, text="Ramka 0x12F na MCP2515")
         clamps.pack(fill="x", padx=10, pady=4)
@@ -223,27 +221,16 @@ class App(tk.Tk):
 
     def _refresh_fa_status(self) -> None:
         order = self._fa.summary() if self._fa is not None else "brak FA"
-        stufe = self._istufe or "brak I-Stufe"
+        vin = self._fa.vin if self._fa is not None and self._fa.vin else ""
         if self._template:
             self.fa_status.set(
-                f"Szablon F15: {order}, I-Stufe {stufe}. "
-                "Do kodowania wczytaj FA zapisane z tego auta."
+                f"G20 na sztywno: {order}"
+                + (f", VIN {vin}" if vin else "")
+                + ". To FA jest zamówieniem zapisanym w BDC."
             )
             return
         name = self._fa_from or "plik"
-        self.fa_status.set(f"{name}: {order}, I-Stufe {stufe}.")
-
-    def _apply_vcm(self, vcm: Vcm, name: str) -> None:
-        if vcm.vin:
-            self.vin_var.set(vcm.vin)
-        self._istufe = vcm.i_stufe
-        self._istufe_werk = vcm.i_stufe_werk
-        self._istufe_ho = vcm.i_stufe_ho
-        if vcm.fa is not None:
-            self._fa = vcm.fa
-            if vcm.fa.vin:
-                self.vin_var.set(vcm.fa.vin)
-        self._fa_from = name
+        self.fa_status.set(f"{name}: {order}" + (f", VIN {vin}" if vin else "") + ".")
 
     def _apply_fa(self, fa: Fa, name: str) -> None:
         self._fa = fa
@@ -251,12 +238,9 @@ class App(tk.Tk):
             self.vin_var.set(fa.vin)
         self._fa_from = name
 
-    def _load_xml(self, path: str, kind: str) -> None:
+    def _load_xml(self, path: str) -> None:
         try:
-            if kind == "fa":
-                self._apply_fa(load_fa(path), Path(path).name)
-            else:
-                self._apply_vcm(load_vcm(path), Path(path).name)
+            self._apply_fa(load_fa(path), Path(path).name)
         except (OSError, ValueError, ET.ParseError) as exc:
             messagebox.showerror(APP_TITLE, str(exc))
             return
@@ -273,25 +257,19 @@ class App(tk.Tk):
             filetypes=[("XML", "*.xml"), ("Wszystkie", "*.*")],
         )
         if path:
-            self._load_xml(path, "fa")
-
-    def _pick_vcm(self) -> None:
-        path = filedialog.askopenfilename(
-            title="VCM.xml",
-            filetypes=[("XML", "*.xml"), ("Wszystkie", "*.*")],
-        )
-        if path:
-            self._load_xml(path, "vcm")
+            self._load_xml(path)
 
     def _load_bundled(self) -> None:
         data = bundled_data_dir()
         try:
-            vcm_path = data / "VCM.xml"
-            if vcm_path.is_file():
-                self._apply_vcm(load_vcm(vcm_path), vcm_path.name)
             fa_path = data / "FA.xml"
             if fa_path.is_file():
                 self._apply_fa(load_fa(fa_path), fa_path.name)
+            svt_path = data / "SVT.xml"
+            if svt_path.is_file():
+                ecus = load_svt(svt_path)
+                listed = ", ".join(f"{ecu.addr:02X} {ecu.name}" for ecu in ecus)
+                self.svt_status.set(f"SVT zaszyte w płytce, {len(ecus)} sterowników: {listed}")
         except (OSError, ValueError, ET.ParseError) as exc:
             self.fa_status.set(str(exc))
             return
@@ -318,13 +296,6 @@ class App(tk.Tk):
             self._append("Brak FA. Wczytaj FA.xml.")
         else:
             self._send_raw({"cmd": "fa", "hex": fa_bytes(self._fa).hex()})
-        if self._istufe or self._istufe_werk or self._istufe_ho:
-            self._send_raw({
-                "cmd": "vcm",
-                "istufe": self._istufe,
-                "werk": self._istufe_werk,
-                "ho": self._istufe_ho,
-            })
 
     def _send_clamps(self) -> None:
         if self._ignore_switch:

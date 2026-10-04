@@ -17,7 +17,7 @@ ESP32 wysyła na MCP2515 jedną ramkę, co 100 ms:
 
 Połączenie to UDP na `169.254.1.20:13401` (adres ETH01). W polu VIN wpisuje się pełne 17 znaków auta. Emulator nadaje je w identyfikacji ENET, DoIP i w DID F190 na każdym adresie, więc ISTA nie prosi o VIN drugi raz. Skrót z nagłówka ISTA to ostatnie 7 znaków. Przełączniki KL30 i KL15 ustawiają jeden bajt. Ten bajt jest w ramce CAN `0x12F` i w odpowiedzi ENET na TCP 6811 (`45` gdy oba włączone, `00` gdy oba wyłączone).
 
-E-Sys przy połączeniu czyta FA (`22 3F 06`) z VCM `0x10`. Okno ładuje `data/FA.xml` i `data/VCM.xml` i wysyła je do emulatora przy połączeniu. W paczce jest szablon F15 (seria `F015`, typ `KR23`, data `0418`, I-Stufe `F025-18-03-520`), więc `requestFaFromMaster` dostaje poprawną strukturę. Do kodowania i drzewa sterowników wczytaj FA zapisane z tego auta (E-Sys: odczyt FA, zapisz XML, potem „Wczytaj FA.xml”). VIN z nagłówka `vinLong` i I-Stufe z VCM idą razem z zamówieniem. I-Stufe jest pamiętane i wpisywane w log, emulator nie odpowiada nim na osobny DID. W logu widać zdarzenia Ethernetu i ramki CAN odebrane przez MCP2515.
+Emulator jest na sztywno G20 320d, VIN `WBA5V510X0FJ28775`. VCM w BDC to zamówienie FA (`22 3F 06`): seria `G020`, typ `5V51`, data `1119`, lakier `0C31`, tapicerka `KGNL`. Plik `data/FA.xml` jest tym zamówieniem. Osobnego pliku VCM nie ma. SVT (`data/SVT.xml`) to aktualne sterowniki, 29 adresów od `BDC_GW3` na `0x10`. Ta lista jest wkompilowana w płytkę. Na `22 F1 01` emulator oddaje SVK danego sterownika (wersja, flaga zależności, liczba SGBMID, potem klasa, numer i wersja części). Inne FA pochodne G20 wczytuje się przyciskiem „Wczytaj FA.xml”. W logu widać zdarzenia Ethernetu i ramki CAN odebrane przez MCP2515.
 
 ```bat
 cd pc_companion
@@ -30,6 +30,5 @@ Polecenie do płytki:
 
 ```json
 {"cmd":"kl","kl30":1,"kl15":1}
-{"cmd":"fa","hex":"03463031..."}
-{"cmd":"vcm","istufe":"F025-18-03-520","werk":"F025-17-11-502","ho":"F025-18-03-520"}
+{"cmd":"fa","hex":"0347303230..."}
 ```

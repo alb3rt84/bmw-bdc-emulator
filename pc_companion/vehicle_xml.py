@@ -1,8 +1,8 @@
-"""FA and VCM XML used by the ZGW window.
+"""FA and SVT XML used by the ZGW window.
 
-E-Sys saves the vehicle order as faList / standardFA. Namespaces are ignored.
-The VCM file is the one this program writes and reads: VIN, I-Stufe and the
-same order. fa_bytes() is the version-3 blob answered on UDS 22 3F 06.
+E-Sys saves the vehicle order as faList / standardFA. That order is what the
+BDC keeps as VCM. SVT is the list of controllers fitted now. Namespaces are
+ignored. fa_bytes() is the version-3 blob answered on UDS 22 3F 06.
 """
 
 from __future__ import annotations
@@ -82,6 +82,43 @@ class Fa:
 
     def summary(self) -> str:
         return f"{self.series} {self.type_key} {self.time_criteria}"
+
+
+@dataclass
+class SvtEcu:
+    addr: int
+    name: str
+    parts: int
+
+
+def load_svt(path: str | Path) -> list[SvtEcu]:
+    root = ET.parse(path).getroot()
+    if _local(root.tag) != "svt":
+        raise ValueError("To nie jest plik SVT (oczekiwany korzeń svt).")
+    ecus: list[SvtEcu] = []
+    seen: set[int] = set()
+    for node in root.iter():
+        if _local(node.tag) != "ecu":
+            continue
+        name = (node.attrib.get("baseVariant") or "").strip()
+        addr = None
+        parts = 0
+        for child in node.iter():
+            tag = _local(child.tag)
+            if tag == "diagnosticAddress" and addr is None:
+                raw = child.attrib.get("physicalOffsetAsHex") or ""
+                addr = int(raw, 16)
+            elif tag == "partIdentification":
+                parts += 1
+        if not name or addr is None:
+            raise ValueError("W SVT jest sterownik bez nazwy albo adresu.")
+        if addr in seen:
+            raise ValueError(f"Adres 0x{addr:02X} powtarza się w SVT.")
+        seen.add(addr)
+        ecus.append(SvtEcu(addr=addr, name=name, parts=parts))
+    if not ecus:
+        raise ValueError("SVT nie zawiera sterowników.")
+    return ecus
 
 
 @dataclass
@@ -192,19 +229,18 @@ def _self_check() -> None:
     here = Path(__file__).resolve().parent
     fa = load_fa(here / "data" / "FA.xml")
     raw = fa_bytes(fa)
-    prefix = bytes.fromhex("03463031354b52323330343138303636384c4353570141303930")
-    if raw[: len(prefix)] != prefix or len(raw) != 70:
-        raise SystemExit(f"FA.xml koduje się inaczej niż szablon: {len(raw)} {raw[:26].hex()}")
-    if fa.summary() != "F015 KR23 0418":
-        raise SystemExit(fa.summary())
-    vcm = load_vcm(here / "data" / "VCM.xml")
-    if vcm.vin != "WBA00000200000000":
-        raise SystemExit(vcm.vin)
-    if vcm.i_stufe != "F025-18-03-520":
-        raise SystemExit(vcm.i_stufe)
-    if vcm.fa is None or fa_bytes(vcm.fa) != raw:
-        raise SystemExit("VCM.xml ma inne FA niż FA.xml")
-    print(f"ok {len(raw)} {fa.summary()} {vcm.i_stufe}")
+    prefix = bytes.fromhex("03473032303556353131313139304333314b474e4c0141303930")
+    if raw[: len(prefix)] != prefix or len(raw) != 208:
+        raise SystemExit(f"FA.xml koduje się inaczej niż G20: {len(raw)} {raw[:26].hex()}")
+    if fa.summary() != "G020 5V51 1119" or fa.vin != "WBA5V510X0FJ28775":
+        raise SystemExit(f"{fa.summary()} {fa.vin}")
+    baked = (here.parent / "src" / "g20_fa.inc").read_text()
+    if "0x03, 0x47, 0x30, 0x32, 0x30" not in baked:
+        raise SystemExit("g20_fa.inc nie zaczyna się od zamówienia G20")
+    svt = load_svt(here / "data" / "SVT.xml")
+    if len(svt) != 29 or svt[0].addr != 0x10 or svt[0].name != "BDC_GW3":
+        raise SystemExit(f"SVT {len(svt)} {svt[0]}")
+    print(f"ok {len(raw)} {fa.summary()} {fa.vin} svt {len(svt)}")
 
 
 if __name__ == "__main__":

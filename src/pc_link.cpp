@@ -11,7 +11,7 @@
  *
  * Reply:
  *   {"ok":1,"kl30":1,"kl15":1}
- *   {"ok":1,"fa":"F015 KR23 0418"}
+ *   {"ok":1,"fa":"G020 5V51 1119"}
  *   {"ok":1,"vcm":1}
  *
  * Unsolicited lines to the last UDP peer:

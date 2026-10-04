@@ -27,7 +27,7 @@ size_t copy(uint8_t* out, size_t outMax);
  */
 bool store(const uint8_t* data, size_t len);
 
-/** "F015 KR23 0418" style label, 19 characters plus NUL is enough. */
+/** "G020 5V51 1119" style label, 19 characters plus NUL is enough. */
 void summary(char out[20]);
 
 /**
