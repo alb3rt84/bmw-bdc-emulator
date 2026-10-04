@@ -136,11 +136,26 @@ bool peel(const uint8_t* data, size_t len, const uint8_t** payload, size_t* payl
   }
   if (len < 4) return false;
   const size_t declared = ((size_t)data[0] << 8) | data[1];
-  if (declared < 24 || declared > kMaxFa || 3 + declared > len) return false;
-  if (faEnd(data + 3, declared) != declared) return false;
-  *payload = data + 3;
-  *payloadLen = declared;
-  return true;
+  if (declared < 24 || declared > kMaxFa) return false;
+  // Length, then the bare order (version at byte 2).
+  if (2 + declared <= len && data[2] == 0x03 && faEnd(data + 2, declared) == declared) {
+    for (size_t i = 2 + declared; i < len; i++) {
+      if (data[i] != 0) return false;
+    }
+    *payload = data + 2;
+    *payloadLen = declared;
+    return true;
+  }
+  // Older reply inserted another version byte, so the order started at byte 3.
+  if (3 + declared <= len && faEnd(data + 3, declared) == declared) {
+    for (size_t i = 3 + declared; i < len; i++) {
+      if (data[i] != 0) return false;
+    }
+    *payload = data + 3;
+    *payloadLen = declared;
+    return true;
+  }
+  return false;
 }
 
 }  // namespace
@@ -214,9 +229,15 @@ size_t copy(uint8_t* out, size_t outMax) {
 }
 
 size_t copyWrapped(uint8_t* out, size_t outMax) {
-  if (out == nullptr || outMax < kPsdzFaBytes) return 0;
+  uint8_t fa[kMaxFa];
+  const size_t n = copy(fa, sizeof(fa));
+  // E-Sys reads the version from byte 2. In the bare order that byte is the
+  // '0' of "G020" (ASCII 48), which it reports as an unsupported version.
+  if (n < 24 || out == nullptr || outMax < kPsdzFaBytes || 2 + n > kPsdzFaBytes) return 0;
   memset(out, 0, kPsdzFaBytes);
-  if (copy(out, kPsdzFaBytes) == 0) return 0;
+  out[0] = (uint8_t)(n >> 8);
+  out[1] = (uint8_t)n;
+  memcpy(out + 2, fa, n);
   return kPsdzFaBytes;
 }
 

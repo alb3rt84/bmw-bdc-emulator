@@ -61,7 +61,7 @@ constexpr uint16_t kPtPowerModeRes         = 0x4004;
 constexpr size_t kAnnounceLen = 33;
 // FA is up to 480 bytes. The largest G20 SVK (HU_MGU, 22 F1 01) is 543 bytes
 // including the UDS header, so the cap has to clear that.
-// 62 3F 06 plus the vehicle order padded through index 842.
+// 62 3F 06 plus a length, the vehicle order, and zeros through index 842.
 constexpr size_t kUdsRespMax = 896;
 
 constexpr uint16_t kLaGateway = uds_bdc::kLogicalAddress;

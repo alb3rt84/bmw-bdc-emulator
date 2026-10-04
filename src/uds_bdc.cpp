@@ -93,7 +93,7 @@ size_t handleReadDid(const uint8_t* req, size_t len, uint8_t* out, size_t outMax
   }
 
   // 3F06 — Fahrzeugauftrag. E-Sys service RDBI_FA on VCM 0x10.
-  // Order starts at byte 0. E-Sys also reads index 842, so the rest is zeros.
+  // Length, then version 3 at byte 2. E-Sys also reads index 842.
   if (did == 0x3F06) {
     if (outMax < 3 + vehicle_fa::kPsdzFaBytes) return neg(out, outMax, 0x22, 0x10);
     out[0] = 0x62;
