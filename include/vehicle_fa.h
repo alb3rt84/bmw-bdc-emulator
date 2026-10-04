@@ -14,8 +14,7 @@
 namespace vehicle_fa {
 
 constexpr size_t kMaxFa = 480;
-// PSdZ MCD3_ReadFAFromVCM copies this many bytes out of RDBI_FA.
-// A shorter payload throws ArrayIndexOutOfBoundsException at index 841.
+// Largest 22 3F 06 body we accept on a write, including a wrapper.
 constexpr size_t kPsdzFaBytes = 842;
 
 /** NVS blob, or the built-in F15 bench order when nothing valid is stored. */
@@ -25,8 +24,15 @@ void load();
 size_t copy(uint8_t* out, size_t outMax);
 
 /**
- * Replace the FA. The buffer is version 3. Counted E / SA / HO fields end
- * the order. Zero bytes after that, up to kPsdzFaBytes, are the E-Sys pad.
+ * 22 3F 06 body. E-Sys reads a big-endian length from bytes 0–1 and copies
+ * that many bytes starting at byte 3, then reads the following byte.
+ * Byte 2 is the FA version. @return wrapped length, or 0 when outMax is too small.
+ */
+size_t copyWrapped(uint8_t* out, size_t outMax);
+
+/**
+ * Replace the FA. Accepts the bare version-3 order, or the wrapped form
+ * answered on 22 3F 06. The stored bytes are the bare order.
  */
 bool store(const uint8_t* data, size_t len);
 

@@ -33,7 +33,6 @@ size_t buildDefault(uint8_t* out) {
 }
 
 // End of the counted version-3 FA, or 0 when the walk does not fit.
-// Bytes after this may be the zero pad E-Sys expects on 22 3F 06.
 size_t faEnd(const uint8_t* data, size_t len) {
   if (!data || len < 24 || data[0] != 0x03) return 0;
   size_t i = 21;
@@ -123,6 +122,27 @@ void logVcm() {
   pc_link::noteLine(msg);
 }
 
+bool peel(const uint8_t* data, size_t len, const uint8_t** payload, size_t* payloadLen) {
+  if (!data || !payload || !payloadLen || len == 0 || len > kPsdzFaBytes) return false;
+  if (data[0] == 0x03) {
+    const size_t end = faEnd(data, len);
+    if (end == 0 || end > kMaxFa) return false;
+    for (size_t i = end; i < len; i++) {
+      if (data[i] != 0) return false;
+    }
+    *payload = data;
+    *payloadLen = end;
+    return true;
+  }
+  if (len < 4) return false;
+  const size_t declared = ((size_t)data[0] << 8) | data[1];
+  if (declared < 24 || declared > kMaxFa || 3 + declared > len) return false;
+  if (faEnd(data + 3, declared) != declared) return false;
+  *payload = data + 3;
+  *payloadLen = declared;
+  return true;
+}
+
 }  // namespace
 
 void load() {
@@ -193,23 +213,33 @@ size_t copy(uint8_t* out, size_t outMax) {
   return n;
 }
 
+size_t copyWrapped(uint8_t* out, size_t outMax) {
+  uint8_t fa[kMaxFa];
+  const size_t n = copy(fa, sizeof(fa));
+  if (n == 0 || out == nullptr || outMax < 4 + n) return 0;
+  out[0] = (uint8_t)(n >> 8);
+  out[1] = (uint8_t)n;
+  out[2] = 0x03;
+  memcpy(out + 3, fa, n);
+  out[3 + n] = 0;
+  return 4 + n;
+}
+
 bool store(const uint8_t* data, size_t len) {
-  const size_t end = faEnd(data, len);
-  if (end == 0 || end > kMaxFa || len > kPsdzFaBytes) return false;
-  for (size_t i = end; i < len; i++) {
-    if (data[i] != 0) return false;
-  }
+  const uint8_t* payload = nullptr;
+  size_t end = 0;
+  if (!peel(data, len, &payload, &end)) return false;
   portENTER_CRITICAL(&g_mux);
-  memcpy(g_fa, data, end);
+  memcpy(g_fa, payload, end);
   g_len = end;
   portEXIT_CRITICAL(&g_mux);
   Preferences prefs;
   prefs.begin("bdcfa", false);
   prefs.putUChar("gen", 2);
-  prefs.putBytes("blob", data, end);
+  prefs.putBytes("blob", payload, end);
   prefs.end();
   logFa();
-  pc_link::noteFa(data, end);
+  pc_link::noteFa(payload, end);
   return true;
 }
 
