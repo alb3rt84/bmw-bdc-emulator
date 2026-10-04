@@ -30,6 +30,7 @@ void canRxTask(void* /*arg*/) {
     // responder, so a module answer is not dropped.
     if (canBusReceive(CanChannel::Can2_Mcp, f, 1)) {
       do {
+        pc_link::noteCan(f.id, f.data, f.dlc);
         if (!kcan_gw::onCanFrame(f)) {
           obd_can::onCanFrame(f.id, f.data, f.dlc, /*fromCan1=*/false);
         }
