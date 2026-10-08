@@ -76,6 +76,8 @@ pyinstaller --noconfirm --onefile --windowed --name BmwBdcCompanion --add-data "
 
 Details: [`pc_companion/README.md`](pc_companion/README.md).
 
+A separate window, `pc_companion/can_logger_app.py`, talks to a Robotell USB-CAN stick (CH340, binary protocol). It shows every CAN frame, records a `.canlog` file, and plays that file back with the original spacing. Build it with `pc_companion\build_logger_exe.bat` → `dist\RobotellCanLogger.exe`.
+
 ## Cyclic frame on the MCP2515
 
 | ID | Period | Purpose | Both switches on |

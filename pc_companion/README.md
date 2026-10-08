@@ -36,3 +36,24 @@ Polecenie do płytki:
 {"cmd":"km","km":123456}
 {"cmd":"fa","hex":"0347303230..."}
 ```
+
+## Logger CAN — Robotell USB-CAN
+
+Osobny program, nie okno ZGW. Adapter CH340 (Robotell) podłącza się do magistrali i program pokazuje każdą ramkę, zapisuje ją do pliku i potrafi odegrać ten plik z powrotem.
+
+```bat
+cd pc_companion
+python can_logger_app.py
+```
+
+EXE: `build_logger_exe.bat` → `dist\RobotellCanLogger.exe`.
+
+1. Sterownik CH340. W Menadżerze urządzeń port COM, często `USB-SERIAL CH340`.
+2. Zamknij EmbededDebug i inne programy, które trzymają ten COM.
+3. **Odśwież**, wybierz port, CAN **500000**, **Połącz**.
+4. Zakładka **Ślad** to kolejne ramki. **Identyfikatory** zbiera jedno ID w jednym wierszu (liczba i odstęp). Filtr przyjmuje kilka ID, np. `12F 330 6F1`. Dwuklik wiersza zostawia tylko to ID.
+5. **Nagrywaj** pyta o plik `.canlog` i dopisuje każdą ramkę od razu. **Stop nagrywania** zamyka plik.
+6. **Otwórz nagranie** czyta plik. **Odtwórz** wysyła te ramki na magistralę z zapisanymi odstępami. Prędkość `2` skraca odstępy o połowę.
+7. **Wyślij** puszcza jedną ramkę i zapisuje ją w śladzie oraz w nagraniu jako `TX`.
+
+Plik zaczyna się od `# robotell-canlog 1`. Każda ramka to czas w sekundach od startu, kierunek, ID, flaga rozszerzona, flaga RTR, DLC i dane hex. CANH/CANL potrzebują drugiego węzła i terminacji 120 Ω.
